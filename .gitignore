@@ -1,0 +1,14 @@
+# secrets
+.env
+.env.*
+!.env.example
+
+# python
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# large/derived data (re-creatable via scripts)
+# data/papers/*.pdf are committed on purpose (arXiv can regenerate PDFs; pin exact bytes)
+data/index/
