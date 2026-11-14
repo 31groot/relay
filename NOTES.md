@@ -112,3 +112,14 @@ Keep max_tokens tight per step anyway — it bounds runaway output cost and late
 **Capture during Phase 7** real load run; the app logs full error bodies and all headers for every non-200.
 
 **Probe closed:** 32 calls, 9,880 tokens charged (cap 20,000).
+
+## 2026-11-14 — Phase 3 retrieval hit rule (user decision)
+
+A retrieved chunk is a **hit** for a retrieval question only if all three hold:
+1. the chunk is from the question's stated paper;
+2. `page_start <= stated page <= page_end`;
+3. the chunk contains the key phrase, matched **whitespace-insensitively after NFKC** (same matcher as
+   `exp/validate_questions.py`). Any `alt_phrases` entry also counts as a match.
+
+Why: short numeric key phrases recur elsewhere (R16 `1024` on 9 library pages, R36 `7.0` on 6), so a
+phrase-only rule would over-count hits. Questions with `source_pages`: stated `page` is the gold page.

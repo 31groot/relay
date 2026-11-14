@@ -115,3 +115,6 @@ Changes to this file need an explicit decision + reason in the changelog at the 
   order on all three papers, `-layout` keeps table rows aligned; headings handled by regex instead of font sizes.
   Table pages (a "Table N:" caption) use `-layout`. Known limits: powers of ten flatten (10^20 → "1020");
   plot ticks survive on pages that mix a plot and a table.
+- 2026-11-14: chunking (Phase 2.3a) at 200/400/800 generator tokens (4.4 chars/token, measured), 15% overlap,
+  never across papers or removed-reference gaps. Known gaps: DC's top-level "§2" heading is not detected (text
+  before §2.1 is labelled "1 Introduction"); the last chunk before each gap is short (5–6 per size).

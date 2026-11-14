@@ -143,3 +143,57 @@ def test_layout_used_for_table_pages():
 def test_original_page_numbers_kept():
     for paper, n in zip(ingest.PAPERS, (15, 66, 39)):
         assert sorted(cleaned(paper)) == list(range(1, n + 1))
+
+
+# ---- Phase 2.3 chunking ----
+
+def test_heading_filters():
+    h = lambda line, app=False: ingest.heading(line, app)
+    assert h("3.1 Encoder and Decoder Stacks") == "3.1 Encoder and Decoder Stacks"
+    assert h("Appendix A. Additional ablation on Mimi codec").startswith("Appendix A.")
+    assert h("A.1 Autoregressive Tokenizer-free Architectures")
+    assert h("1. How does our model behave in terms of producing toxic content?") is None  # list item
+    assert h("L Lratio =") is None and h("N S = 1.0") is None                              # equations
+    assert h("2.95 Mamba-2") is None                                                       # plot tick + label
+    assert h("3.5 Tokens Entropy", True) is None                                           # numeric inside appendix
+
+
+@lru_cache(maxsize=None)
+def chunks(paper, size):
+    return ingest.chunk_paper(paper, cleaned(paper), size)
+
+
+@pytest.mark.parametrize("size", ingest.SIZES)
+def test_chunks_metadata_sizes_overlap(size):
+    for paper in ingest.PAPERS:
+        cs = chunks(paper, size)
+        assert {c["paper"] for c in cs} == {ingest.SHORT[paper]}               # never crosses papers
+        assert all(c["page_start"] <= c["page_end"] for c in cs)
+        gaps = {r[-1] for r in ingest.page_runs(cleaned(paper))}                # last page of each run
+        assert all(abs(c["est_tokens"] - size) <= 0.1 * size for c in cs if c["page_end"] not in gaps)
+        for c in cs:                                                           # no chunk bridges removed text
+            assert any(r[0] <= c["page_start"] and c["page_end"] <= r[-1] for r in ingest.page_runs(cleaned(paper)))
+        for x, y in zip(cs, cs[1:]):                                           # next chunk starts with a tail of this one
+            if y["page_start"] > x["page_end"] + 1:
+                continue                                                       # new run after a gap: no overlap
+            a, b = x["text"].split(), y["text"].split()
+            k = next((k for k in range(len(a) - 1, 0, -1) if a[-k:] == b[:k]), 0)
+            assert 0.08 * size <= len(" ".join(a[-k:])) / ingest.CHARS_PER_TOKEN <= 0.25 * size, (x["chunk_id"], k)
+        words = " ".join(" ".join(cleaned(paper)[p].split()) for p in sorted(cleaned(paper)) if cleaned(paper)[p].strip())
+        assert words.split()[-1] in cs[-1]["text"]                             # nothing dropped at the end
+
+
+def test_chunk_pages_and_section():
+    c = next(c for c in chunks(ATT, 200) if "N = 6 identical layers" in c["text"])
+    assert c["page_start"] <= 3 <= c["page_end"]
+    assert c["section_heading"] in ("3 Model Architecture", "3.1 Encoder and Decoder Stacks")
+    c = next(c for c in chunks(MOSHI, 400) if c["page_start"] >= 60)
+    assert c["section_heading"].startswith(("Appendix", "F")), c["section_heading"]   # not "3.5 Tokens Entropy"
+    c = next(c for c in chunks(ATT, 200) if c["page_start"] == 13)
+    assert c["section_heading"] == "7 Conclusion"                              # carried across the references gap
+
+
+def test_heading_rejects_equation_fragment_and_keeps_later_sections():
+    assert ingest.heading("P Epos .", False) is None
+    secs = {s for _, _, s in ingest.page_words({p: t for p, t in cleaned(ATT).items() if t.strip()})}
+    assert {"4 Why Self-Attention", "5.3 Optimizer", "7 Conclusion"} <= secs

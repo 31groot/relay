@@ -143,6 +143,98 @@ def clean(paper, raw, layout_pages=()):
     return {p: join_section_numbers(t if p in layout_pages else strip_figure_text(t)) for p, t in pages.items()}
 
 
+# ---- chunking (Phase 2.3) ----
+
+SHORT = {"1706.03762v7": "attention", "2410.00037v1": "moshi", "2507.07955v2": "dynchunk"}  # names used in questions.json
+CHARS_PER_TOKEN = 4.4  # measured on gpt-oss/qwen prompt tokens in results/probe_log.jsonl (4.38–4.55); low end = safe
+SIZES = (200, 400, 800)   # generator tokens
+OVERLAP = 0.15
+
+_HEADING = re.compile(r"^\s*((?:[1-9]\d?|[A-Z])(?:\.(?:[1-9]|1\d))*|Appendix [A-Z]\.)\s+([A-Z][^\n]{1,80})$")
+
+
+def heading(line, in_appendix):
+    """Section heading text, or None. Filters found by inspection (Phase 2.3): list items "1. …", equations,
+    plot ticks like "2.95 Mamba-2", and numeric figure titles inside appendices."""
+    m = _HEADING.match(line)
+    title = m.group(2).strip() if m else ""
+    if (not m or len(line.split()) > 12 or "=" in line or re.search(r"\d{3,}", title)
+            or title.endswith(".") or not re.match(r"[A-Za-z]{3,}", title)):  # e.g. equation fragment "P Epos ."
+        return None
+    if in_appendix and m.group(1)[0].isdigit():
+        return None
+    return f"{m.group(1)} {m.group(2).strip()}"
+
+
+def page_words(pages):
+    """[(word, page, section)] for one paper, in order. Table column gaps (3+ spaces) become " | "."""
+    out, section, in_appendix = [], "(front matter)", False
+    for p in sorted(pages):
+        for line in pages[p].splitlines():
+            h = heading(line, in_appendix)
+            if h:
+                section, in_appendix = h, in_appendix or not h[0].isdigit()
+            line = re.sub(r" {3,}", " | ", line.strip())
+            out.extend((w, p, section) for w in line.split())
+    return out
+
+
+def page_runs(pages):
+    """Runs of consecutive non-empty pages; a gap = removed references, which no chunk may bridge."""
+    runs = []
+    for p in sorted(p for p, t in pages.items() if t.strip()):
+        if runs and p == runs[-1][-1] + 1:
+            runs[-1].append(p)
+        else:
+            runs.append([p])
+    return runs
+
+
+def chunk_paper(paper, pages, size):
+    """Word windows of ~size generator tokens with OVERLAP; never crosses papers or removed-text gaps."""
+    words, chunks = page_words({p: t for p, t in pages.items() if t.strip()}), []  # sections tracked across runs
+    for run in page_runs(pages):
+        run_words = [w for w in words if run[0] <= w[1] <= run[-1]]
+        chunks += _chunk_words(paper, run_words, size, start_index=len(chunks))
+    return chunks
+
+
+def _chunk_words(paper, words, size, start_index):
+    target, step_back = size * CHARS_PER_TOKEN, size * OVERLAP * CHARS_PER_TOKEN
+    chunks, i = [], 0
+    while i < len(words):
+        j, n = i, 0
+        while j < len(words) and (n < target or j == i):
+            n += len(words[j][0]) + 1
+            j += 1
+        text = " ".join(w for w, _, _ in words[i:j])
+        chunks.append({"chunk_id": f"{SHORT[paper]}-{size}-{start_index + len(chunks):04d}", "paper": SHORT[paper], "arxiv_id": paper,
+                       "size": size, "page_start": words[i][1], "page_end": words[j - 1][1],
+                       "section_heading": words[i][2], "text": text, "est_tokens": round(len(text) / CHARS_PER_TOKEN)})
+        if j >= len(words):
+            break
+        back, k = 0, j  # next window starts ~OVERLAP tokens before this one ended
+        while k > i + 1 and back < step_back:
+            k -= 1
+            back += len(words[k][0]) + 1
+        i = k
+    return chunks
+
+
+def load_clean(paper):
+    d = ROOT / "data" / "clean" / paper
+    return {int(f.stem[1:]): f.read_text() for f in d.glob("p*.txt")}
+
+
+def write_chunks():
+    import json
+    out = ROOT / "data" / "index" / "chunks.jsonl"
+    out.parent.mkdir(parents=True, exist_ok=True)
+    rows = [c for size in SIZES for paper in PAPERS for c in chunk_paper(paper, load_clean(paper), size)]
+    out.write_text("".join(json.dumps(r, ensure_ascii=False) + "\n" for r in rows))
+    return rows
+
+
 def load_raw(paper):
     pdf = ROOT / "data" / "papers" / f"{paper}.pdf"
     raw, layout_pages = {}, []
@@ -174,4 +266,5 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    import sys
+    write_chunks() if sys.argv[1:] == ["chunk"] else main()
