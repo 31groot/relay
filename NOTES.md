@@ -248,3 +248,18 @@ The page (p.7) is correct. Write-up material.
 the 429's "Requested 2522" ≈ P4-3 prompt + 350 (run 1), and remaining-tokens after P4-1 generate (run 2) = 8,000 − 5,320
 = 2,680 = prompt 2,330 + 350 exactly. Against: Phase 1.2's 78 + 8,000 = 8,078 request was accepted on a full bucket.
 The pacer reserves prompt + max_tokens (+100) either way.
+
+## 2026-11-14 — Phase 5 day 1 (default + baseline): grading rules and a judge lead
+
+- **Grades** are in `results/grade_overrides.jsonl` (user grade final; separate from auto-grades). A06 overridden
+  wrong → correct in default and baseline ("paraphrase of the same fact, cited page covers the evidence page").
+- **A03 rule (user decision):** headline grade stays **wrong** when the gold page (p.3) is neither retrieved nor
+  cited, even if the fact is correct; footnote column **"fact correct, cited to abstract"** (default and baseline).
+  The same rule applies to the wide-context run.
+- **Judge limit:** default ran with judge max_tokens 150 and only the truncated item (A01) was re-judged with 400,
+  reusing the logged generation; baseline onwards ran with 400. Baseline judge completions reached 149 and 167 tokens.
+- **Lead — judge consistency (n=2, not re-run):** the same 20b judge PASSED an embellishment in default A01
+  ("Scaling by √d_k therefore counteracts this effect and stabilizes the gradients before the softmax is applied")
+  but FLAGGED a similar one in baseline A01 attempt 1 ("This scaling therefore stabilizes the softmax computation and
+  improves training of the attention mechanism" → unsupported, then corrected). Both answers are added to the
+  corruption test as extra controls.

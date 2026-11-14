@@ -191,3 +191,29 @@ def test_rejudge_reuses_logged_generation(tmp_path):
     assert new["outcome"] == "answered" and new["rejudged"] and new["attempts"][0]["judge_old"]["verdict"] == "judge_truncated"
     assert rp.latest_requests(log)["default:A01"]["rejudged"] and rp.truncated_judges(log, "default") == []
     assert "default:A01" in rp.finished(log)
+
+
+# ---- corruption-test runner ----
+
+import run_corruption as rc  # noqa: E402
+
+
+def test_build_items_from_default_answers(tmp_path):
+    log, reqs = tmp_path / "phase5_log.jsonl", []
+    p = pl.Pipeline(FakeRetriever({None: 0.8}), judge_client([(SUPPORTED, "stop")], reqs, gen_text="It has 4000 steps [S1]."),
+                    "gsk_FAKE_x", log_path=log, pacer=limiter.Pacer(sleep=lambda s: None))
+    p.answer("q", "default:A01")
+    qs = {"A01": {"evidence_phrase": "Passage 1"}}
+    items = rc.build_items(log, qs, chunks_by_id())
+    kinds = {i["kind"]: i for i in items}
+    assert [i["kind"] for i in items][:4] == ["control", "number_swap", "citation_swap", "unsupported_addition"]
+    assert kinds["number_swap"]["text"] == "It has 5000 steps [S1]." and kinds["control"]["expected"] == "supported"
+    assert kinds["citation_swap"]["text"] == "It has 4000 steps [S2]."              # S2 lacks "Passage 1"
+    assert kinds["lead_default_A01_released"]["expected"] == "contested"
+
+
+def test_summarize_excludes_truncated():
+    rows = [{"kind": "number_swap", "verdict": v} for v in ("unsupported", "supported", "judge_truncated", "unsupported")] \
+         + [{"kind": "control", "verdict": "supported"}, {"kind": "control", "verdict": "unsupported"}]
+    s = rc.summarize(rows)
+    assert s["number_swap"] == (2, 3, 1) and s["control"] == (1, 2, 0)            # caught 2 of 3 scored, 1 truncated
