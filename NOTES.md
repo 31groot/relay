@@ -136,3 +136,47 @@ BAAI/bge-small-en-v1.5 at pinned revision `5c38ec7c405ec4b44b94cc5a9bb96e735b382
 
 Runtime: onnxruntime 1.32.0, tokenizers 0.23.3, numpy 2.5.4 (pinned in requirements.txt). Installing them also
 pulled transitive deps (huggingface-hub, hf-xet, fsspec, protobuf, …) — not used directly.
+
+## 2026-11-14 — Phase 3 checkpoint decisions (FINAL, user decision)
+
+Source: `results/retrieval_eval.csv`, `results/gate_scores.csv`, `results/retrieval_report.txt` (commit ce86bec).
+40 retrieval questions; budget = top-8 @200, top-4 @400, top-2 @800 (~1,600 context tokens each).
+
+| Role | Setting | R@budget | R@10 |
+|---|---|---|---|
+| **Default** | hybrid (RRF k=60), 200-token chunks, top-8 | 34/40 (85.0%) | 35/40 (87.5%) |
+| **Baseline** | BM25, 200, top-8 | 34/40 (85.0%) | 36/40 (90.0%) |
+| **Wide context** | hybrid, 800, top-2 | 31/40 (77.5%) | 38/40 (95.0%) |
+| Dropped | semantic-only (best 28/40), hybrid 400 (30/40), BM25-only gating | | |
+
+Budget recall, all settings: bm25 34 / 34 / 30; semantic 28 / 27 / 25; hybrid 34 / 30 / 31 (sizes 200 / 400 / 800).
+
+**Gate:** answer only if semantic top-1 cosine ≥ **0.60** at size 200. INDICATIVE: based on 5 off-topic
+questions. Highest off-topic 0.551, lowest answerable 0.649 → 0.60 sits ~0.049 from each; one new off-topic
+question scoring > 0.60 or answerable < 0.60 breaks it. Off-topic false-answer 0/5, false-refusal 0/47 at this set.
+Near-miss questions are NOT expected to be caught by the gate (4–5/5 pass at every size); `NOT_IN_PAPERS` + the
+judge handle them, and Phase 5 reports them separately. BM25 top score cannot gate (off-topic outscores the weakest
+answerable at every size; margins −2.1 / −4.6 / −6.1).
+
+**800 averaging confound:** best-piece is no better than averaged (semantic 800 R@budget 22 vs 25; hybrid 29 vs 31;
+R@5/R@10 identical). BM25 (unaffected by averaging) also drops at 800 (34 → 30). Conclusion: the 2-chunk budget,
+not embedding averaging, limits the 800 setting.
+
+**Span-only hits:** 0 within budget for every retriever and size (all chunks: 0 / 2 / 1 span-only matches at
+200 / 400 / 800). The hit rule does not favour large chunks here.
+
+**Router (explicit paper names only):** routes 12/40, all to the gold paper, and changes one cell only
+(bm25 800 R@10 37 → 38). Kept as specified; little measured benefit on this set.
+
+## 2026-11-14 — Retrieval failure modes (write-up material; nothing tuned against the 40 questions)
+
+- **No stemming (known limitation):** R14 asks "parameters", text has "7B-parameter" (BM25 rank 79);
+  R27 asks "GPU", text has "H100 GPUs" (BM25 rank 49).
+- **Moshi transcript appendix pulls BM25:** p63–64 are full of "USER: … MOSHI: …", so they outrank the abstract
+  for questions containing "Moshi" (R13 top-3 = p63, p27–28, p63–64; R30 has p64 at #2).
+- **Semantic weak on table values at 200:** misses R17, R35, R36 (answer is a cell value; R17 gold rank 86).
+- **"Layers" matches across papers:** R01 (Attention encoder layers) — semantic top-1 at 400 was a DC chunk,
+  #3 Moshi's "8 layers"; top-3 cosines within 0.736–0.748.
+
+Known limitation (retrieval): no stemming or plural folding in the BM25 tokenizer. Not changed (user decision:
+no tuning against the evaluation questions).
