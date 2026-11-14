@@ -76,10 +76,7 @@ First chunk / first content (ms): short = median (max) over 8; medium, large = s
   own calls: 999, 999, 998 … 991). **TPM separate per model — medium confidence** (large-prompt round: 20b's header
   showed only its own 1,687 tokens 8.5 s after 120b's 1,685-token call; a shared bucket would show ~2,200).
   TPM refills linearly at 8000/60 = 133.3 tok/s (`reset-tokens` = charged / 133.3).
-- Q2 (max_tokens vs TPM), **corrected**: Groq reserves prompt + max_completion_tokens at admission and settles to actual
-  usage on completion. Header snapshot showed the reservation in 10/30 calls and ≈ actual usage in 20/30.
-  **Medium confidence** (inferred from header timing, undocumented). Consequence: max_tokens does not change daily cost
-  but limits in-flight capacity during bursts → tight max_tokens per step; local limiter reserves max_tokens, refunds on completion.
+- Q2 (max_tokens vs TPM): see "Phase 1.2" below — the 1.1 reading ("reserves prompt + max_tokens") was **wrong**.
 
 ## 2026-11-14 — Locked model pair
 
@@ -88,3 +85,30 @@ First chunk / first content (ms): short = median (max) over 8; medium, large = s
 | Generator | openai/gpt-oss-120b | Strongest production model available; reasoning overhead at `low` measured negligible |
 | Judge | openai/gpt-oss-20b | Separate quota pool (Q1) so judging doesn't compete with generation; cheapest; short verdicts. Watch: highest queue time in probe |
 | Fallback | qwen/qwen3.8-27b | Lowest latency and ~60 fewer tokens/call; third pool. Risk: preview status, highest price |
+
+## 2026-11-14 — Phase 1.2: max_tokens vs TPM (calls 31–32, gpt-oss-20b, prompt "Reply with the single word OK.", 78 tok)
+
+Bucket full before each call (≥ 228 s since previous 20b call; refill 133.3 tok/s).
+
+| Call | max_completion_tokens | Status | Actual usage | TPM header drop | prompt + max |
+|---|---|---|---|---|---|
+| 1.1 (30 calls) | 300 | 200 | 46–1,711 | = prompt+max in 10/30, ≈ usage in 20/30 | — |
+| 31 | 8,000 | **200** | 95 | **835** | 8,078 |
+| 32 | 2,000 | 200 | 95 | **95** | 2,078 |
+
+**Q2 result:**
+- `max_completion_tokens` is **not** an admission check against TPM: a request whose prompt + max (8,078) exceeds the
+  entire 8K TPM limit was accepted. **High confidence** (direct observation).
+- The drop does **not** scale with max_tokens (2,000 → 95 = actual usage; 8,000 → 835, unexplained). The 1.1 "prompt + 300"
+  drops are unexplained by a single rule; header snapshots are inconsistent. How Groq charges in-flight requests:
+  **unknown, low confidence** in any model of it. Daily/settled charge = actual usage: **medium-high confidence**.
+
+**Limiter rule (corrects the 1.1 note):** reserve an **estimate** (prompt tokens + expected output for that step),
+not max_tokens; re-sync from `x-ratelimit-remaining-tokens` on every response; treat the 429 (Phase 7) as the ground truth.
+Reserving full max_tokens would be more conservative than Groq and waste burst capacity.
+Keep max_tokens tight per step anyway — it bounds runaway output cost and latency, not admission.
+
+**Q4 (exact 429 body/headers, recovery time):** not captured in Phase 1 (no deliberate burst, option (b) declined).
+**Capture during Phase 7** real load run; the app logs full error bodies and all headers for every non-200.
+
+**Probe closed:** 32 calls, 9,880 tokens charged (cap 20,000).
