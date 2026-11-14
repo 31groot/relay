@@ -123,3 +123,8 @@ Changes to this file need an explicit decision + reason in the changelog at the 
   Known gap: DC p7 Figure 2 spells "...new product!" byte by byte ("n e w _ p r o d u c t ! _", 6 lines);
   deliberate figure text, not an extraction defect. Not joined (user decision): the caption and body text
   on p7 contain "new product!" as normal words.
+- 2026-11-14: Phase 6 build. Stand-in = stdlib asyncio HTTP server (no FastAPI/uvicorn dependency), OpenAI-compatible
+  SSE, calibrated by resampling real latencies. Limiter = async per-model TPM bucket with priority admission, deadline
+  shedding, refund-on-settle and header sync (`app/limiter.py`); retries in `app/aclient.py`. Pipeline steps [5]-[8]
+  became one generator (`answer_steps`) driven synchronously (Phase 4/5) or under asyncio (load runs). The FastAPI app
+  server and SSE to users are NOT built: load runs drive the pipeline in-process (see NOTES.md Phase 7).

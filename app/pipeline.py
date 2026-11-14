@@ -179,6 +179,71 @@ def parse_verdict(text):
     return {"verdict": v["verdict"], "claim": str(v.get("claim", "")), "reason": str(v.get("reason", "")), "parsed": True}
 
 
+def answer_steps(question, chunks, res):
+    """Steps [5]-[8] as a generator shared by the sync pipeline and the async load runner.
+    Yields call requests {step, model, messages, max_tokens}; receives the call row (None = refused by a budget or
+    limiter guard). Returns (outcome, outcome_reason, rendered_answer) and fills res["attempts"]."""
+    gen_msgs = prompts.generator_messages(question, chunks)
+    msgs = gen_msgs
+    for attempt in (1, 2):  # original + at most one correction, same context
+        gen = yield {"step": f"generate#{attempt}", "model": GEN_MODEL, "messages": msgs, "max_tokens": GEN_MAX}
+        if gen is None:
+            return "refused", "budget", None
+        if gen["http_status"] != 200:
+            return "error", f"provider HTTP {gen['http_status'] or gen.get('error')}", None
+        raw = gen["text"].strip()
+        text = normalize_output(raw).strip()  # format drift is fixed here, so it never costs a correction call
+        ok, why = deterministic_check(text, len(chunks))
+        step = {"attempt": attempt, "raw_output": raw, "normalized_output": text, "check": why, "check_ok": ok,
+                "format_only_fix": ok and not deterministic_check(raw, len(chunks))[0],
+                "stray_brackets": stray_brackets(text),
+                "gen_tokens": (gen.get("usage") or {}).get("total_tokens"), "gen_pace_wait_s": gen.get("pace_wait_s")}
+        res["attempts"].append(step)
+        if ok and text == prompts.NOT_IN_PAPERS:
+            return "refused", "generator: NOT_IN_PAPERS (judge skipped)", None
+        if ok:
+            labels = sorted(set(cited_labels(text)))
+            step["cited_labels"] = [f"S{n}" for n in labels]
+            jr = yield {"step": f"judge#{attempt}", "model": JUDGE_MODEL, "max_tokens": JUDGE_MAX,
+                        "messages": prompts.judge_messages(question, text, [(n, chunks[n - 1]) for n in labels])}
+            if jr is None:
+                return "refused", "budget", None
+            verdict = judge_verdict(jr)
+            step["judge"] = verdict
+            step["judge_tokens"] = (jr.get("usage") or {}).get("total_tokens")
+            step["judge_pace_wait_s"] = jr.get("pace_wait_s")
+            if verdict["verdict"] == "supported":
+                return "answered", "judge: supported", render(text, chunks)
+            if verdict["verdict"] == "judge_truncated":  # unverified → not released, and no correction
+                return "refused", "judge_truncated (answer not verified, not released)", None
+            claim, reason = verdict["claim"], verdict["reason"]
+        else:
+            claim, reason = "", f"deterministic check failed: {why}"
+        if attempt == 1:
+            msgs = prompts.correction_messages(gen_msgs, text, claim, reason)
+    return "refused", "failed after one correction", None
+
+
+def drive(steps, call):
+    """Run answer_steps synchronously: call(**request) → row."""
+    try:
+        req = next(steps)
+        while True:
+            req = steps.send(call(**req))
+    except StopIteration as done:
+        return done.value
+
+
+async def adrive(steps, acall):
+    """Run answer_steps under asyncio: await acall(**request) → row."""
+    try:
+        req = next(steps)
+        while True:
+            req = steps.send(await acall(**req))
+    except StopIteration as done:
+        return done.value
+
+
 class Pipeline:
     def __init__(self, retriever, client, key, budget=None, url=llm.GROQ_URL, log_path=LOG, pacer=None):
         self.retriever, self.client, self.key, self.url = retriever, client, key, url
@@ -209,7 +274,8 @@ class Pipeline:
             raise llm.Stopped(f"HTTP {row['http_status']} at {step}")
         return row
 
-    def answer(self, question, rid):
+    def prepare(self, question, rid):
+        """Steps [2]-[4]: route, retrieve, gate (broaden once if routed and weak). → (res, chunks or None if gated)."""
         res = {"type": "request", "request_id": rid, "question": question, "attempts": []}
         papers = retrieve.route(question)
         top, score = self.retriever.search(question, papers)
@@ -220,48 +286,15 @@ class Pipeline:
             res["broadened"] = True
         res.update(gate_score=round(score, 4), retrieved=[{"label": f"S{n}", "chunk_id": c["chunk_id"], "paper": c["paper"],
                    "pages": prompts.pages(c), "rank": int(r)} for n, (c, r) in enumerate(top, 1)])
-        if score < GATE:
+        return res, ([c for c, _ in top] if score >= GATE else None)
+
+    def answer(self, question, rid):
+        res, chunks = self.prepare(question, rid)
+        if chunks is None:
             return self._finish(res, "refused", "gate", None)
-        chunks = [c for c, _ in top]
-        gen_msgs = prompts.generator_messages(question, chunks)
-        msgs = gen_msgs
-        for attempt in (1, 2):  # original + at most one correction, same context
-            gen = self._call(rid, f"generate#{attempt}", GEN_MODEL, msgs, GEN_MAX)
-            if gen is None:
-                return self._finish(res, "refused", "budget", None)
-            if gen["http_status"] != 200:
-                return self._finish(res, "error", f"provider HTTP {gen['http_status'] or gen.get('error')}", None)
-            raw = gen["text"].strip()
-            text = normalize_output(raw).strip()  # format drift is fixed here, so it never costs a correction call
-            ok, why = deterministic_check(text, len(chunks))
-            step = {"attempt": attempt, "raw_output": raw, "normalized_output": text, "check": why, "check_ok": ok,
-                    "format_only_fix": ok and not deterministic_check(raw, len(chunks))[0],
-                    "stray_brackets": stray_brackets(text),
-                    "gen_tokens": (gen.get("usage") or {}).get("total_tokens"), "gen_pace_wait_s": gen["pace_wait_s"]}
-            res["attempts"].append(step)
-            if ok and text == prompts.NOT_IN_PAPERS:
-                return self._finish(res, "refused", "generator: NOT_IN_PAPERS (judge skipped)", None)
-            if ok:
-                labels = sorted(set(cited_labels(text)))
-                step["cited_labels"] = [f"S{n}" for n in labels]
-                jr = self._call(rid, f"judge#{attempt}", JUDGE_MODEL,
-                                prompts.judge_messages(question, text, [(n, chunks[n - 1]) for n in labels]), JUDGE_MAX)
-                if jr is None:
-                    return self._finish(res, "refused", "budget", None)
-                verdict = judge_verdict(jr)
-                step["judge"] = verdict
-                step["judge_tokens"] = (jr.get("usage") or {}).get("total_tokens")
-                step["judge_pace_wait_s"] = jr["pace_wait_s"]
-                if verdict["verdict"] == "supported":
-                    return self._finish(res, "answered", "judge: supported", render(text, chunks))
-                if verdict["verdict"] == "judge_truncated":  # unverified → not released, and no correction
-                    return self._finish(res, "refused", "judge_truncated (answer not verified, not released)", None)
-                claim, reason = verdict["claim"], verdict["reason"]
-            else:
-                claim, reason = "", f"deterministic check failed: {why}"
-            if attempt == 1:
-                msgs = prompts.correction_messages(gen_msgs, text, claim, reason)
-        return self._finish(res, "refused", "failed after one correction", None)
+        outcome = drive(answer_steps(question, chunks, res),
+                        lambda step, model, messages, max_tokens: self._call(rid, step, model, messages, max_tokens))
+        return self._finish(res, *outcome)
 
     def _finish(self, res, outcome, reason, rendered):
         res.update(outcome=outcome, outcome_reason=reason, final_answer=rendered, budget_used=dict(self.budget.used),

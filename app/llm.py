@@ -38,26 +38,56 @@ def chat(client, key, model, messages, max_tokens, url=GROQ_URL, reasoning_effor
 
 def _parse(lines, t0, row):
     for line in lines:
-        if not line.startswith("data:"):
-            continue
-        data = line[5:].strip()
-        if data == "[DONE]":
+        if not _parse_line(line, t0, row):
             break
-        chunk = json.loads(data)
-        if "error" in chunk:
-            row["stream_error"] = chunk["error"]
-        usage = chunk.get("usage") or (chunk.get("x_groq") or {}).get("usage")
-        if usage:
-            row["usage"] = usage
-        for choice in chunk.get("choices") or []:
-            delta = choice.get("delta") or {}
-            r, c = delta.get("reasoning") or "", delta.get("content") or ""
-            t = round((now() - t0) * 1000, 1)
-            if (r or c) and row["first_chunk_ms"] is None:
-                row["first_chunk_ms"] = t
-            if c and row["first_content_ms"] is None:
-                row["first_content_ms"] = t
-            row["reasoning"] += r
-            row["text"] += c
-            if choice.get("finish_reason"):
-                row["finish_reason"] = choice["finish_reason"]
+
+
+def _parse_line(line, t0, row):
+    """One SSE line, timed when it ARRIVES (first_content_ms is real time-to-first-token). False at [DONE]."""
+    if not line.startswith("data:"):
+        return True
+    data = line[5:].strip()
+    if data == "[DONE]":
+        return False
+    chunk = json.loads(data)
+    if "error" in chunk:
+        row["stream_error"] = chunk["error"]
+    usage = chunk.get("usage") or (chunk.get("x_groq") or {}).get("usage")
+    if usage:
+        row["usage"] = usage
+    for choice in chunk.get("choices") or []:
+        delta = choice.get("delta") or {}
+        r, c = delta.get("reasoning") or "", delta.get("content") or ""
+        t = round((now() - t0) * 1000, 1)
+        if (r or c) and row["first_chunk_ms"] is None:
+            row["first_chunk_ms"] = t
+        if c and row["first_content_ms"] is None:
+            row["first_content_ms"] = t
+        row["reasoning"] += r
+        row["text"] += c
+        if choice.get("finish_reason"):
+            row["finish_reason"] = choice["finish_reason"]
+    return True
+
+
+async def achat(client, key, model, messages, max_tokens, url=GROQ_URL, reasoning_effort="low"):
+    """Async twin of chat() for the load runner (httpx.AsyncClient). Same row shape, same parser, no retries."""
+    row = {"model": model, "max_tokens": max_tokens, "http_status": None, "text": "", "reasoning": "", "usage": None,
+           "finish_reason": None, "first_chunk_ms": None, "first_content_ms": None}
+    body = {"model": model, "messages": messages, "stream": True, "stream_options": {"include_usage": True},
+            "max_completion_tokens": max_tokens, "temperature": 0, "reasoning_effort": reasoning_effort}
+    t0 = now()
+    try:
+        async with client.stream("POST", url, json=body, timeout=60, headers={"Authorization": f"Bearer {key}"}) as r:
+            row["http_status"] = r.status_code
+            row["response_headers"] = [[k, "<redacted>" if k.lower() == "set-cookie" else v] for k, v in r.headers.multi_items()]
+            if r.status_code == 200:
+                async for line in r.aiter_lines():
+                    if not _parse_line(line, t0, row):
+                        break
+            else:
+                row["error_body"] = (await r.aread()).decode(errors="replace")
+    except httpx.HTTPError as e:
+        row["error"] = type(e).__name__
+    row["total_ms"] = round((now() - t0) * 1000, 1)
+    return row

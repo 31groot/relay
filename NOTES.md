@@ -307,3 +307,33 @@ Ran on the SAME UTC day's evaluation share (not a fresh day): 120b 26,080 tokens
   Transformer after 30 B training bytes", cited to pp.12–13 (gold p.4 not retrieved); grade wrong (missing
   "perplexity", "tokenized Transformer"), footnote "fact correct, different page".
 - Wide A06 overridden wrong → correct (same paraphrase rule); A01, A02, A04, A05 confirmed.
+
+## 2026-11-14 — Phase 6: stand-in and limiter — ASSUMPTIONS (one list)
+
+Code: `standin/server.py` (stand-in), `app/limiter.py` (Limiter, SimClock), `app/aclient.py` (call + retries),
+`app/pipeline.py` (`answer_steps` generator shared by the sync pipeline and the async load runner). Tests:
+`tests/test_phase6.py` (14, repeated 5× without flakes).
+
+1. **Latency** = resample (first_content_ms, total_ms) from the 131 real 200-responses of the same model and
+   prompt-size bucket (<300 / 300–1300 / ≥1300 prompt tokens). No parametric fit; the real tail (max ~2.1 s) is the tail.
+2. **Slower under load** = latency × (1 + 0.05 × (in-flight − 1)). **NOT calibrated** (we never ran concurrent real
+   calls); this is where the stand-in is least like the real thing.
+3. **TPM** bucket per model, refilling continuously at limit/60 per second (measured: reset-tokens = charged / 133.3).
+   Admission reserves prompt + max_tokens (Q2 hypothesis, medium-low confidence) capped at the bucket size (Phase 1.2:
+   an 8,078 request was accepted on a full 8K bucket), then settles to actual usage on completion.
+4. **429** body/headers copied from the real one (type, code, message with Limit/Used/Requested, retry-after rounded up,
+   x-ratelimit-*); returned after ~75 ms. RPM = sliding 60 s window (30); RPD/TPD daily counters (1,000 / 200,000).
+5. **Content** = replay of the real default-setting outputs and verdicts for the 17 answer questions; unknown questions
+   get "NOT_IN_PAPERS" / "supported". So stand-in quality = real quality for those questions; grades carry over only when
+   the replayed answer is released unchanged.
+6. **Failures**: 5xx and slow-success are injectable (--p5xx, --pslow ×10) but default 0: none observed in 131 real calls.
+7. **Prompt tokens** at the stand-in = chars / 3.4 + 80 (measured on logged pipeline prompts).
+8. **Time compression**: simulated seconds = wall × speed; sleeps, refill, windows and headers use simulated seconds.
+   Local Python overhead (ms) is NOT compressed, so it is inflated ×speed in simulated time (small, stated).
+9. **Limiter**: one-at-a-time admission in (priority, arrival) order — judge/correction (priority 0) before new requests
+   (1); reserve prompt + max_tokens + 100; refuse early (Shed) if the expected refill wait passes the deadline; settle
+   refunds need − actual; header sync only lowers the local level (never trusts more than the provider shows);
+   cancellation: queued → nothing reserved, admitted-unsent → full refund, sent → keeps the prompt estimate.
+10. **Retries**: only per-minute 429, 5xx, transport errors; never a per-day 429; ≤ 2 per call; wait = max(retry-after,
+    1 s × 2^n × jitter 0.5–1.5); global retry budget ≤ 10% of calls + 5; never if the wait passes the deadline;
+    every retry re-enters the limiter.
