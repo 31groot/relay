@@ -337,3 +337,33 @@ Code: `standin/server.py` (stand-in), `app/limiter.py` (Limiter, SimClock), `app
 10. **Retries**: only per-minute 429, 5xx, transport errors; never a per-day 429; ≤ 2 per call; wait = max(retry-after,
     1 s × 2^n × jitter 0.5–1.5); global retry budget ≤ 10% of calls + 5; never if the wait passes the deadline;
     every retry re-enters the limiter.
+
+## 2026-11-14 — Phase 7: stand-in load runs (no Groq)
+
+Code: `exp/loadgen.py` (open-loop Poisson arrivals, Zipf question mix over the 17 answer questions, patience 20 s,
+time ×20, one stand-in process per scenario, seed 7), `exp/build_results.py` → `results/results.csv` (449 rows: 90 real
++ 359 stand-in), `exp/make_tables.py` → `results/tables.md` (Tables 2a/2b/3 computed ONLY from results.csv).
+Pipeline = default setting (hybrid 200 top-8, gate 0.60) via `answer_steps` + Limiter + retry policy; retrieval
+precomputed per question (deterministic). Fallback ladder when shed or per-day 429: validated cache (this run) →
+extractive (top-2 passages, 0 tokens) → refusal. Cache is used ONLY as a fallback rung (no coalescing) so capacity is
+measured honestly.
+
+| Scenario (stand-in) | Offered | Requests | ok % | rate-limited % (served by fallback) | gave up % | peak queue |
+|---|---|---|---|---|---|---|
+| steady | 2/min, 30 min | 63 | 100.0 | 0.0 | 0.0 | 0 |
+| burst | 1/min + 40 in 1 min | 63 | 55.6 | 44.4 (cache 18, extractive 10) | 0.0 | 15 |
+| overload | 8/min, 15 min | 133 | 47.4 | 51.9 (cache 36, extractive 33) | 0.8 | 11 |
+| tpm_halved (4K TPM) | 2/min, 30 min | 63 | 68.3 | 31.7 (cache 13, extractive 7) | 0.0 | 1 |
+| daily_exhausted (6K TPD left) | 2/min, 15 min | 37 | 32.4 | 67.6 (cache 10, extractive 15) | 0.0 | 0 |
+
+- Retries per request = 0.00 everywhere: the limiter learned the limit from the first response's headers and waited or
+  shed BEFORE any 429. Section 6 ("one case where retrying made things worse") still needs a deliberate comparison run
+  (naive client: no limiter, retry every 429) — not done.
+- "Rate-limited" rows were still served (cache/extractive) except 1 given up (overload).
+- Patience 20 s, Zipf mix and ×20 compression are assumptions; stand-in slowdown under load is uncalibrated (Phase 6 #2).
+
+**"Fewer chunks" rung — proposal from the numbers (user decides):** do NOT add it for per-minute pressure.
+- Capacity: 120b reservation per generation ≈ 2,622 at top-8 → ≈ 3.05 generations/min; top-4 ≈ 1,819 → ≈ 4.40/min (+44%).
+- Quality cost (Phase 3, zero tokens): hybrid R@4 27/40 vs R@8 34/40 (−17.5 pts); BM25 R@4 31/40 (−7.5 pts).
+- Overload offered 9.2/min ≈ 3× capacity: +44% does not close the gap; the fallback ladder already serves every shed
+  request but one. If a rung is ever added, use BM25 top-4, not hybrid top-4.
