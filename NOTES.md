@@ -214,3 +214,37 @@ Unknown state at start-up = empty bucket. A 429 still stops the run.
 **Budget for the re-run:** gpt-oss-120b used 7,482 of the 10K smoke share today; the shortfall is **borrowed from the
 120b development share (20K/day): 8,000 tokens** → 120b cap 18,000 for today (7,482 used + 3 generations + one
 correction ≈ 17,632 worst case). gpt-oss-20b: no borrowing, cap 10,000, 0 used.
+
+## 2026-11-14 — Phase 4 results (paced re-run) — CHECKPOINT PASSED
+
+Same 4 user-written questions (none from eval/questions.json), hybrid 200 top-8, gate 0.60, generator gpt-oss-120b
+(max 350), judge gpt-oss-20b (max 150), citation normalization + pacing on. Log: `results/phase4_log.jsonl` (run 1 = 7
+lines, run 2 = 9 lines).
+
+| Q | Gate | Outcome | Generate tokens | Judge tokens |
+|---|---|---|---|---|
+| P4-1 optimizer + warmup | 0.771 | answered — Adam [S1], 4000 warmup steps [S2]; judge SUPPORTED | 2,400 | 891 |
+| P4-2 base dropout | 0.715 | answered — Pdrop = 0.1 [S2]; judge SUPPORTED (stray "[Pdrop = 0.1]" bracket) | 2,517 | 615 |
+| P4-3 EN→ES BLEU (near-miss) | 0.790 | refused — generator NOT_IN_PAPERS, judge skipped | 2,210 | — |
+| P4-4 sourdough (off-topic) | 0.502 | refused at gate, 0 calls | — | — |
+
+- Both answers passed the deterministic check only after normalization (format-only); no correction calls in run 2.
+- Pacing: first call waited 19.4 s (empty-bucket start-up assumption), later calls 0 s; 896 TPM tokens left after P4-3.
+- **Budget used today:** gpt-oss-120b **14,609** (run 1 7,482 + run 2 7,127) against cap 18,000 = smoke 10,000 +
+  **4,609 of 8,000 borrowed from the 120b development share** actually used; gpt-oss-20b **1,506** of 10,000.
+
+**Fixes after the run (user decisions):**
+- Prompt-token estimator recalibrated **4.0 → 3.2 chars/token**: exact rebuild of all 8 logged calls gives a minimum of
+  3.37 chars/token (P4-2 judge); 4.0 underestimated prompts by up to 12% (P4-2 generate actual 2,517 > estimated worst
+  2,482). New generator worst case ≈ 3,000/call (was ≈ 2,480). Test: estimate ≥ actual prompt tokens for every logged call.
+- **Stray brackets** (bracketed spans that are not citations, e.g. "[Pdrop = 0.1]") are logged per attempt as
+  `stray_brackets`, never failed. Phase 5 counts them.
+
+**Limitation — section labels:** a chunk carries the section it STARTS in. P4-1's Adam sentence is in §5.3 Optimizer
+but rendered as "§5.1 Training Data and Batching" (chunk attention-200-0027 starts in §5.1 and runs into §5.3).
+The page (p.7) is correct. Write-up material.
+
+**Q2 evidence update (confidence MEDIUM-LOW):** two observations fit "admission reserves prompt + max_completion_tokens":
+the 429's "Requested 2522" ≈ P4-3 prompt + 350 (run 1), and remaining-tokens after P4-1 generate (run 2) = 8,000 − 5,320
+= 2,680 = prompt 2,330 + 350 exactly. Against: Phase 1.2's 78 + 8,000 = 8,078 request was accepted on a full bucket.
+The pacer reserves prompt + max_tokens (+100) either way.

@@ -254,3 +254,48 @@ def test_budget_caps_with_prior_usage_and_borrow():
     b = pl.Budget(used={"g": 7482}, caps={"g": 18000})
     assert b.allows("g", 10518) and not b.allows("g", 10519)
     assert b.allows("j", 10000) and not b.allows("j", 10001)              # no borrow → smoke 10K
+
+
+# ---- Phase 4 fixes: stray brackets, recalibrated estimator ----
+
+def test_stray_bracket_logged_not_failed(tmp_path):
+    norm = pl.normalize_output(RAW_P4_2_RUN2)
+    assert pl.stray_brackets(norm) == ["Pdrop = 0.1"] and pl.deterministic_check(norm, 8) == (True, "ok")
+    assert pl.stray_brackets("A [S1]. B [S2, S3].") == []                  # citations are not stray
+    res, reqs, _ = run("q", [RAW_P4_2_RUN2], [SUPPORTED], tmp_path=tmp_path)
+    assert res["outcome"] == "answered" and res["attempts"][0]["stray_brackets"] == ["Pdrop = 0.1"]
+    logged = [json.loads(line) for line in (tmp_path / "log.jsonl").read_text().splitlines()]
+    assert logged[-1]["attempts"][0]["stray_brackets"] == ["Pdrop = 0.1"]
+
+
+# Exact P4-2 output from the paced run (results/phase4_log.jsonl, run 2).
+RAW_P4_2_RUN2 = "The base Transformer model used a dropout rate of\u202f0.1\u202f[Pdrop\u202f=\u202f0.1]\u3010S2\u3011"
+
+ROOT = Path(__file__).resolve().parent.parent
+
+
+@pytest.mark.skipif(not (ROOT / "results" / "phase4_log.jsonl").exists(), reason="Phase 4 log not present")
+def test_estimate_covers_actual_prompt_tokens_for_every_logged_call():
+    """Rebuild every logged call's exact messages and check chars/CHARS_PER_TOKEN_EST + overhead >= actual prompt tokens."""
+    chunks = {c["chunk_id"]: c for c in map(json.loads, (ROOT / "data" / "index" / "chunks.jsonl").read_text().splitlines())}
+    rows = [json.loads(line) for line in (ROOT / "results" / "phase4_log.jsonl").read_text().splitlines()]
+    checked = 0
+    for i, r in enumerate(rows):
+        if r["type"] != "call" or not r.get("usage"):
+            continue
+        req = next(q for q in rows[i:] if q["type"] == "request" and q["request_id"] == r["request_id"])
+        cs = [chunks[x["chunk_id"]] for x in req["retrieved"]]
+        kind, n = r["step"].split("#")
+        gen = prompts.generator_messages(req["question"], cs)
+        if kind == "generate":
+            first = req["attempts"][0]
+            msgs = gen if n == "1" else prompts.correction_messages(gen, first["raw_output"], "", f"deterministic check failed: {first['check']}")
+        else:
+            a = req["attempts"][int(n) - 1]
+            msgs = prompts.judge_messages(req["question"], a.get("normalized_output", a["raw_output"]),
+                                          [(int(lab[1:]), cs[int(lab[1:]) - 1]) for lab in a["cited_labels"]])
+        chars = sum(len(m["content"]) for m in msgs)
+        assert int(chars / pl.CHARS_PER_TOKEN_EST) + pl.TEMPLATE_OVERHEAD >= r["usage"]["prompt_tokens"], (r["request_id"], r["step"])
+        assert pl.worst_case(msgs, r["max_tokens"]) >= r["usage"]["total_tokens"]
+        checked += 1
+    assert checked == 8

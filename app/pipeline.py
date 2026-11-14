@@ -25,7 +25,7 @@ GEN_MAX, JUDGE_MAX = 350, 150
 GATE = 0.60          # semantic top-1 cosine at size 200 (Phase 3 checkpoint, indicative)
 SIZE, TOP_K = 200, 8
 TOKEN_CAP, CALL_CAP = 10_000, 8   # smoke-test budget per model / total calls (NOTES.md)
-CHARS_PER_TOKEN_EST = 4.0         # budget estimate; measured 4.4 → ~10% margin
+CHARS_PER_TOKEN_EST = 3.2         # min observed 3.37 on logged pipeline prompts (P4-2 judge) → ~5% margin; was 4.0 (underestimated up to 12%)
 TEMPLATE_OVERHEAD = 80            # measured gpt-oss chat-template tokens (probe)
 PACING_MARGIN = 100               # tokens of safety on top of prompt + max_tokens when pacing
 
@@ -101,6 +101,11 @@ def cited_labels(text):
         if group.strip().startswith("S"):
             out += [int(n) for n in re.findall(r"S(\d+)", group)]
     return out
+
+
+def stray_brackets(text):
+    """Bracketed spans that are not citations ("[Pdrop = 0.1]"). Logged for Phase 5 counts; never fail an answer."""
+    return [g for g in re.findall(r"\[([^\]]*)\]", text) if not re.fullmatch(r"\s*S\d+(\s*,\s*S\d+)*\s*", g)]
 
 
 def deterministic_check(text, n_sources):
@@ -198,6 +203,7 @@ class Pipeline:
             ok, why = deterministic_check(text, len(chunks))
             step = {"attempt": attempt, "raw_output": raw, "normalized_output": text, "check": why, "check_ok": ok,
                     "format_only_fix": ok and not deterministic_check(raw, len(chunks))[0],
+                    "stray_brackets": stray_brackets(text),
                     "gen_tokens": (gen.get("usage") or {}).get("total_tokens"), "gen_pace_wait_s": gen["pace_wait_s"]}
             res["attempts"].append(step)
             if ok and text == prompts.NOT_IN_PAPERS:
