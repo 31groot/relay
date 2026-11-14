@@ -217,3 +217,17 @@ def test_summarize_excludes_truncated():
          + [{"kind": "control", "verdict": "supported"}, {"kind": "control", "verdict": "unsupported"}]
     s = rc.summarize(rows)
     assert s["number_swap"] == (2, 3, 1) and s["control"] == (1, 2, 0)            # caught 2 of 3 scored, 1 truncated
+
+
+# ---- numeric-grounding analysis (post-hoc, not in the pipeline) ----
+
+import numeric_grounding as ng  # noqa: E402
+
+
+def test_numeric_grounding_rules():
+    src = ["context length of 4,096 tokens; a 2-stage H-Net after 30 B bytes; Pdrop = 0.1"]
+    assert ng.ungrounded_numbers("It uses 4,096 tokens [S1].", src) == []
+    assert ng.ungrounded_numbers("It uses 5,096 tokens [S1].", src) == ["5096"]
+    assert ng.ungrounded_numbers("A 3‑stage H-Net [S1].", src) == ["3"]          # "3" inside "30" does not count
+    assert ng.ungrounded_numbers("Dropout 0.1 [S12].", src) == []                       # label digits ignored
+    assert ng.ungrounded_numbers("Trained on 512 TPU v4 chips for 3 weeks [S1].", src) == ["512", "4", "3"]

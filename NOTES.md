@@ -263,3 +263,32 @@ The pacer reserves prompt + max_tokens (+100) either way.
   but FLAGGED a similar one in baseline A01 attempt 1 ("This scaling therefore stabilizes the softmax computation and
   improves training of the attention mechanism" → unsupported, then corrected). Both answers are added to the
   corruption test as extra controls.
+
+## 2026-11-14 — Phase 5 judge corruption test (gpt-oss-20b, judge max_tokens 400) — INDICATIVE, n ≤ 7 per type
+
+Source: `results/judge_corruption.csv`, corruption rows in `results/phase5_log.jsonl` (27 judge calls, 18,960 tokens,
+0 truncated). Items: the 7 default-setting answers released as SUPPORTED → unchanged control + 3 code-made corruptions.
+
+| Item | Result |
+|---|---|
+| Controls (unchanged) | **0/7 false rejections** |
+| Number swap (first number, leading digit +1) | caught **3/4** (n/a for A01, A03, A06: no number) |
+| Citation swap (labels re-pointed to a retrieved chunk without the evidence) | caught **7/7** |
+| Unsupported addition ("The model was also trained on 512 TPU v4 chips for 3 weeks [S<first label>].") | caught **4/7** |
+
+**Misses:** unsupported addition on **A02, A04, A07** (the judge's reason addressed only the first, true sentence);
+number swap on **A07** ("2-stage" → "3-stage" judged SUPPORTED while the judge's reason quoted "2‑stage").
+
+**Weak spot:** a fabricated sentence carrying a valid label, placed after a true sentence, passes BOTH the
+deterministic check (it is cited) and the judge (which appears to verify the main claim and stop).
+
+**A01 lead (reworded):** borderline paraphrase, judged consistently on identical text (n=2 texts) — default A01's
+"stabilizes the gradients" was SUPPORTED twice (control + lead repeat); baseline A01 attempt 1's "stabilizes the softmax
+computation and improves training" was UNSUPPORTED twice (baseline run + lead repeat).
+
+**Phase 5 checkpoint answers (user decisions):**
+- **The judge earns its cost for wrong sources** (citation swap 7/7, controls 0/7 false rejections) **but not for
+  appended claims** (4/7). Judge prompt and pipeline are NOT changed.
+- **A correction should NOT widen retrieval:** the only answerable judge rejection (A01) had its gold evidence
+  retrieved (a generation problem, not retrieval); A03 was a retrieval miss that the judge SUPPORTED, so widening on
+  rejection would not have triggered for it.
