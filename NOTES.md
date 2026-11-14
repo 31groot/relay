@@ -47,7 +47,7 @@ The one-time Phase 1 probe is paid from the spare 10% and capped at **20K tokens
 1. Do models have separate quota pools, or is quota shared per organization?
 2. Does `max_tokens` count toward TPM?
 3. How many reasoning tokens do gpt-oss models use at the lowest reasoning effort?
-4. What are the exact 429 body and headers?
+4. What are the exact 429 body and headers? — **ANSWERED 2026-11-14 (Phase 4 run 1), see below.**
 
 ## 2026-11-14 — Phase 1.1 probe findings (results/probe_log.jsonl, 30 calls, all 200, 9,690 tokens)
 
@@ -180,3 +180,37 @@ not embedding averaging, limits the 800 setting.
 
 Known limitation (retrieval): no stemming or plural folding in the BM25 tokenizer. Not changed (user decision:
 no tuning against the evaluation questions).
+
+## 2026-11-14 — Phase 4 run 1 (smoke test): real 429, citation drift
+
+Log: `results/phase4_log.jsonl` (org ID redacted in place, 7 lines kept). 3 generator calls on gpt-oss-120b
+(2,400 / 2,570 / 2,512 tokens), then a 429; 0 judge calls; the 4th question never ran.
+
+**Q4 answered — the real 429 (tokens per minute):**
+- Status **429**, rejected in **~75 ms** (fails fast, no tokens charged).
+- Body: `{"error": {"message": "Rate limit reached for model `openai/gpt-oss-120b` in organization `org_<redacted>`
+  service tier `on_demand` on tokens per minute (TPM): Limit 8000, Used 7203, Requested 2522. Please try again in
+  12.9375s. …", "type": "tokens", "code": "rate_limit_exceeded"}`. The body names the organization → logs redact `org_…`.
+- Headers: `retry-after: 13` (s), `x-ratelimit-remaining-tokens: 797`, `x-ratelimit-reset-tokens: 54.022s`
+  (time to a full bucket), `x-ratelimit-remaining-requests: 997`.
+- "Used 7203" ≈ the 7,482 just spent minus ~2 s of refill → supports "charged at actual usage".
+- Cause (my harness, not the prompts): no pacing between calls; 3 back-to-back generations of ~2.5K exceed 8K TPM.
+  Capacity consequence: **~2.5K tokens per request on 120b → about 3 requests per minute on the free tier.**
+
+**Q2 reopened — hypothesis (LOW confidence, n=2):** admission may check used + prompt + max_completion_tokens
+against the limit: "Requested 2522" ≈ P4-3's prompt (~2,170, estimated; no usage on a rejected call) + 350.
+Against it: Phase 1.2's 78 + 8,000 = 8,078 request was accepted on a full bucket. Not resolved.
+
+**Citation drift (gpt-oss-120b):** citations came as ` [​S1]` (narrow no-break space, then a zero-width
+space INSIDE the bracket) and `【S2】` (U+3010/U+3011). The deterministic check rejected correct-looking answers on
+format alone, and one correction call (~2.5K tokens) was spent on format. Fix (user decision, no prompt edit):
+normalize output before the check and the render — drop Unicode Cf, map Unicode spaces (Zs) to " ", 【】 → [].
+Format-only failures therefore never cost a correction; real failures after normalization still do.
+
+**Pacing (user decision):** before each call, wait until last `x-ratelimit-remaining-tokens` + refill
+(limit/60 ≈ 133 tok/s) covers prompt + max_tokens + 100; reserve that at admission; re-sync from headers.
+Unknown state at start-up = empty bucket. A 429 still stops the run.
+
+**Budget for the re-run:** gpt-oss-120b used 7,482 of the 10K smoke share today; the shortfall is **borrowed from the
+120b development share (20K/day): 8,000 tokens** → 120b cap 18,000 for today (7,482 used + 3 generations + one
+correction ≈ 17,632 worst case). gpt-oss-20b: no borrowing, cap 10,000, 0 used.

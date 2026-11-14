@@ -7,6 +7,7 @@ import httpx
 import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "app"))
+import limiter  # noqa: E402
 import llm  # noqa: E402
 import pipeline as pl  # noqa: E402
 import prompts  # noqa: E402
@@ -49,7 +50,7 @@ def scripted(gen_outputs, judge_outputs, requests):
 def run(question, gens, judges, scores=None, budget=None, tmp_path=None):
     reqs = []
     p = pl.Pipeline(FakeRetriever(scores or {None: 0.8}), scripted(gens, judges, reqs), FAKE_KEY,
-                    budget=budget, log_path=tmp_path / "log.jsonl")
+                    budget=budget, log_path=tmp_path / "log.jsonl", pacer=limiter.Pacer(sleep=lambda s: None))
     return p.answer(question, "T1"), reqs, p
 
 
@@ -159,7 +160,7 @@ def test_429_stops_run(tmp_path):
     def handler(request):
         return httpx.Response(429, headers={"retry-after": "7"}, json={"error": {"message": "rate limit"}})
     p = pl.Pipeline(FakeRetriever({None: 0.8}), httpx.Client(transport=httpx.MockTransport(handler)), FAKE_KEY,
-                    log_path=tmp_path / "log.jsonl")
+                    log_path=tmp_path / "log.jsonl", pacer=limiter.Pacer(sleep=lambda s: None))
     with pytest.raises(llm.Stopped):
         p.answer("q", "T1")
 
@@ -175,3 +176,81 @@ def test_key_and_cookie_never_logged(tmp_path, capsys):
 def test_cli_refuses_without_go_real():
     with pytest.raises(SystemExit, match="go-real"):
         pl.main(["What is Moshi?"])
+
+
+# ---- Phase 4 run-2 changes: citation normalization, pacing, org redaction, prior usage ----
+
+# Exact raw generator outputs logged in results/phase4_log.jsonl (run 1, 2026-11-14).
+RAW_P4_1 = "The Transformer authors trained their models with the Adam optimizer\u202f[\u200bS1] and used 4000 warmup steps during learning\u2011rate scheduling\u202f[\u200bS2]."
+RAW_P4_1B = "The Transformer authors trained their models with the Adam optimizer\u202f[\u200bS1]. They used 4000 warmup steps for the learning\u2011rate schedule\u202f[\u200bS2]."
+RAW_P4_2 = "The base Transformer model used a dropout rate of\u202fPdrop\u202f=\u202f0.1\u3010S2\u3011"
+
+
+@pytest.mark.parametrize("raw", [RAW_P4_1, RAW_P4_1B, RAW_P4_2])
+def test_logged_raw_outputs_fail_raw_pass_normalized(raw):
+    assert pl.deterministic_check(raw, 8)[0] is False                    # what run 1 saw
+    norm = pl.normalize_output(raw)
+    assert pl.deterministic_check(norm, 8) == (True, "ok")
+    assert "\u200b" not in norm and "\u202f" not in norm and "\u3010" not in norm
+
+
+def test_normalize_exact_mappings():
+    assert pl.normalize_output("a\u202fb\u00a0c[\u200bS1]\u3010S2\u3011\ufeff") == "a b c[S1][S2]"
+    assert pl.normalize_output("learning\u2011rate") == "learning\u2011rate"   # non-breaking hyphen is Pd, kept
+
+
+def test_render_uses_normalized_text(tmp_path):
+    res, reqs, _ = run("q", [RAW_P4_2], [SUPPORTED], tmp_path=tmp_path)
+    assert res["final_answer"] == "The base Transformer model used a dropout rate of Pdrop = 0.1[Moshi, \u00a73.2 Section, p.12]"
+
+
+def test_format_only_failure_costs_no_correction(tmp_path):
+    res, reqs, _ = run("q", [RAW_P4_1], [SUPPORTED], tmp_path=tmp_path)
+    assert [b["model"] for b in reqs] == [pl.GEN_MODEL, pl.JUDGE_MODEL]   # straight to the judge
+    assert res["attempts"][0]["format_only_fix"] is True and res["outcome"] == "answered"
+    assert "\u200b" not in reqs[1]["messages"][1]["content"]               # judge sees the normalized answer
+
+
+def test_real_failure_after_normalization_still_corrects(tmp_path):
+    res, reqs, _ = run("q", ["Fact\u202f[\u200bS9].", "Fact [S1]."], [SUPPORTED], tmp_path=tmp_path)
+    assert [b["model"] for b in reqs] == [pl.GEN_MODEL, pl.GEN_MODEL, pl.JUDGE_MODEL]
+    assert res["attempts"][0]["format_only_fix"] is False and "out of range" in res["attempts"][0]["check"]
+
+
+def test_pacer_fake_clock():
+    t = [100.0]
+    slept = []
+    p = limiter.Pacer(clock=lambda: t[0], sleep=lambda s: (slept.append(s), t.__setitem__(0, t[0] + s)))
+    assert p.wait("m", 2600) == pytest.approx(2600 * 60 / 8000, abs=1e-3)       # unknown = empty bucket at start: 19.5 s
+    p.update("m", [["x-ratelimit-remaining-tokens", "797"], ["x-ratelimit-limit-tokens", "8000"]])  # the real 429 headers
+    assert p.wait("m", 2600) == pytest.approx((2600 - 797) * 60 / 8000, abs=1e-3)  # 13.5 s, close to Groq's retry-after 13
+    assert p.wait("m", 1000) == pytest.approx(1000 * 60 / 8000, abs=1e-3)         # previous reservation used everything
+    t[0] += 600                                                          # long idle: bucket caps at the limit
+    assert p.available("m") == 8000 and p.wait("m", 9000) == 0           # larger than bucket: needs only a full one
+
+
+def test_org_id_redacted_in_log(tmp_path):
+    def handler(request):
+        return httpx.Response(429, json={"error": {"message": "Rate limit reached for model in organization `org_01ABCdef234` on TPM"}})
+    p = pl.Pipeline(FakeRetriever({None: 0.8}), httpx.Client(transport=httpx.MockTransport(handler)), FAKE_KEY,
+                    log_path=tmp_path / "log.jsonl", pacer=limiter.Pacer(sleep=lambda s: None))
+    with pytest.raises(llm.Stopped):
+        p.answer("q", "T1")
+    log = (tmp_path / "log.jsonl").read_text()
+    assert "org_01ABCdef234" not in log and "org_<redacted>" in log
+
+
+def test_prior_usage_from_log(tmp_path):
+    rows = [{"type": "call", "ts": "2026-11-14T13:00:00", "model": "g", "http_status": 200, "usage": {"total_tokens": 2400}, "worst_case": 2483},
+            {"type": "call", "ts": "2026-11-14T13:01:00", "model": "g", "http_status": 429, "usage": None, "worst_case": 2489},
+            {"type": "call", "ts": "2026-11-14T13:02:00", "model": "j", "http_status": None, "usage": None, "worst_case": 1300},
+            {"type": "call", "ts": "2026-11-13T13:00:00", "model": "g", "http_status": 200, "usage": {"total_tokens": 999}, "worst_case": 1},
+            {"type": "request"}]
+    (tmp_path / "log.jsonl").write_text("".join(json.dumps(r) + "\n" for r in rows))
+    assert pl.prior_usage(tmp_path / "log.jsonl", "2026-11-14") == {"g": 2400, "j": 1300}   # 429 = 0, other day ignored
+
+
+def test_budget_caps_with_prior_usage_and_borrow():
+    b = pl.Budget(used={"g": 7482}, caps={"g": 18000})
+    assert b.allows("g", 10518) and not b.allows("g", 10519)
+    assert b.allows("j", 10000) and not b.allows("j", 10001)              # no borrow → smoke 10K
