@@ -144,3 +144,50 @@ def test_budget_refusal_is_not_finished_and_stops(tmp_path):
 def test_cli_requires_go_real_and_setting():
     with pytest.raises(SystemExit, match="usage"):
         rp.main(["--setting", "default"])
+
+
+# ---- judge limit 400 + truncation flag + re-judge of truncated items ----
+
+def judge_client(judge_replies, reqs, gen_text="Fact x [S1]."):
+    """Generator always answers gen_text; judge replies are (text, finish_reason) in order."""
+    import httpx
+    replies = list(judge_replies)
+
+    def handler(request):
+        body = json.loads(request.content)
+        reqs.append(body)
+        if body["model"] == pl.GEN_MODEL:
+            text, finish = gen_text, "stop"
+        else:
+            text, finish = replies.pop(0)
+        sse = (f"data: {json.dumps({'choices': [{'delta': {'content': text}, 'finish_reason': finish}]})}\n\n"
+               f"data: {json.dumps({'choices': [], 'usage': {'total_tokens': 300}})}\n\ndata: [DONE]\n\n")
+        return httpx.Response(200, text=sse)
+    return httpx.Client(transport=httpx.MockTransport(handler))
+
+
+def test_truncated_judge_is_flagged_not_unsupported(tmp_path):
+    reqs = []
+    p = pl.Pipeline(FakeRetriever({None: 0.8}), judge_client([("", "length")], reqs), "gsk_FAKE_x",
+                    log_path=tmp_path / "log.jsonl", pacer=limiter.Pacer(sleep=lambda s: None))
+    res = p.answer("q", "default:A01")
+    assert [b["model"] for b in reqs] == [pl.GEN_MODEL, pl.JUDGE_MODEL]          # no correction call
+    assert reqs[1]["max_completion_tokens"] == 400
+    assert res["attempts"][0]["judge"]["verdict"] == "judge_truncated"
+    assert res["outcome"] == "refused" and res["outcome_reason"].startswith("judge_truncated")
+    assert pl.judge_verdict({"http_status": 200, "finish_reason": "stop", "text": "not json"})["verdict"] == "unsupported"
+
+
+def test_rejudge_reuses_logged_generation(tmp_path):
+    log, reqs = tmp_path / "phase5_log.jsonl", []
+    p = pl.Pipeline(FakeRetriever({None: 0.8}), judge_client([("", "length"), (SUPPORTED, "stop")], reqs), "gsk_FAKE_x",
+                    log_path=log, pacer=limiter.Pacer(sleep=lambda s: None))
+    p.answer("q", "default:A01")
+    assert rp.truncated_judges(log, "default") == ["default:A01"]
+    old = rp.latest_requests(log)["default:A01"]
+    new = rp.rejudge(p, old, chunks_by_id())
+    assert [b["model"] for b in reqs] == [pl.GEN_MODEL, pl.JUDGE_MODEL, pl.JUDGE_MODEL]   # NO new generation
+    assert reqs[2]["messages"] == reqs[1]["messages"] and reqs[2]["max_completion_tokens"] == 400
+    assert new["outcome"] == "answered" and new["rejudged"] and new["attempts"][0]["judge_old"]["verdict"] == "judge_truncated"
+    assert rp.latest_requests(log)["default:A01"]["rejudged"] and rp.truncated_judges(log, "default") == []
+    assert "default:A01" in rp.finished(log)

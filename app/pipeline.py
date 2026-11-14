@@ -21,7 +21,7 @@ import retrieve  # noqa: E402
 ROOT = Path(__file__).resolve().parent.parent
 LOG = ROOT / "results" / "phase4_log.jsonl"
 GEN_MODEL, JUDGE_MODEL = "openai/gpt-oss-120b", "openai/gpt-oss-20b"
-GEN_MAX, JUDGE_MAX = 350, 150
+GEN_MAX, JUDGE_MAX = 350, 400   # judge was 150 until Phase 5 default: reasoning used 148/150 and truncated A01
 GATE = 0.60          # semantic top-1 cosine at size 200 (Phase 3 checkpoint, indicative)
 SIZE, TOP_K = 200, 8
 GATE_SIZE = 200   # gate always on size-200 semantic scores (calibration size)
@@ -157,6 +157,17 @@ def render(text, chunks):
                   if m.group(1).strip().startswith("S") else m.group(0), text)
 
 
+def judge_verdict(jr):
+    """Verdict from a judge call row. A judge cut off by max_tokens is "judge_truncated", NEVER "unsupported":
+    nothing was checked, so it must not trigger a correction or count as a caught error."""
+    if jr["http_status"] != 200:
+        return {"verdict": "unsupported", "claim": "", "reason": f"judge HTTP {jr['http_status']}", "parsed": False}
+    if jr.get("finish_reason") == "length":
+        return {"verdict": "judge_truncated", "claim": "", "parsed": False,
+                "reason": f"judge hit max_tokens {jr.get('max_tokens')} (finish_reason=length)"}
+    return parse_verdict(jr["text"])
+
+
 def parse_verdict(text):
     m = re.search(r"\{.*\}", text, re.S)
     try:
@@ -237,13 +248,14 @@ class Pipeline:
                                 prompts.judge_messages(question, text, [(n, chunks[n - 1]) for n in labels]), JUDGE_MAX)
                 if jr is None:
                     return self._finish(res, "refused", "budget", None)
-                verdict = parse_verdict(jr["text"]) if jr["http_status"] == 200 else \
-                    {"verdict": "unsupported", "claim": "", "reason": f"judge HTTP {jr['http_status']}", "parsed": False}
+                verdict = judge_verdict(jr)
                 step["judge"] = verdict
                 step["judge_tokens"] = (jr.get("usage") or {}).get("total_tokens")
                 step["judge_pace_wait_s"] = jr["pace_wait_s"]
                 if verdict["verdict"] == "supported":
                     return self._finish(res, "answered", "judge: supported", render(text, chunks))
+                if verdict["verdict"] == "judge_truncated":  # unverified → not released, and no correction
+                    return self._finish(res, "refused", "judge_truncated (answer not verified, not released)", None)
                 claim, reason = verdict["claim"], verdict["reason"]
             else:
                 claim, reason = "", f"deterministic check failed: {why}"
