@@ -1,0 +1,244 @@
+size 200: hit-rule chunk matches (all chunks, not just retrieved): 52, of which phrase on the stated page itself: 52, span-only: 0
+size 400: hit-rule chunk matches (all chunks, not just retrieved): 51, of which phrase on the stated page itself: 49, span-only: 2
+size 800: hit-rule chunk matches (all chunks, not just retrieved): 47, of which phrase on the stated page itself: 46, span-only: 1
+
+### Overall (n=40), base: all papers, no router
+setting           R@5                 R@10                R@budget            
+bm25 200          32/40 (80.0%)       36/40 (90.0%)       34/40 (85.0%)       
+bm25 400          35/40 (87.5%)       35/40 (87.5%)       34/40 (85.0%)       
+bm25 800          36/40 (90.0%)       37/40 (92.5%)       30/40 (75.0%)       
+semantic 200      28/40 (70.0%)       31/40 (77.5%)       28/40 (70.0%)       
+semantic 400      27/40 (67.5%)       31/40 (77.5%)       27/40 (67.5%)       
+semantic 800      31/40 (77.5%)       34/40 (85.0%)       25/40 (62.5%)       
+hybrid 200        29/40 (72.5%)       35/40 (87.5%)       34/40 (85.0%)       
+hybrid 400        31/40 (77.5%)       37/40 (92.5%)       30/40 (75.0%)       
+hybrid 800        36/40 (90.0%)       38/40 (95.0%)       31/40 (77.5%)       
+
+### Per paper, base
+
+R@5:
+setting           attention (n=12)    moshi (n=16)        dynchunk (n=12)     
+bm25 200          11/12 (91.7%)       11/16 (68.8%)       10/12 (83.3%)       
+bm25 400          12/12 (100.0%)      13/16 (81.2%)       10/12 (83.3%)       
+bm25 800          12/12 (100.0%)      13/16 (81.2%)       11/12 (91.7%)       
+semantic 200      11/12 (91.7%)       10/16 (62.5%)       7/12 (58.3%)        
+semantic 400      12/12 (100.0%)      9/16 (56.2%)        6/12 (50.0%)        
+semantic 800      12/12 (100.0%)      10/16 (62.5%)       9/12 (75.0%)        
+hybrid 200        11/12 (91.7%)       11/16 (68.8%)       7/12 (58.3%)        
+hybrid 400        12/12 (100.0%)      11/16 (68.8%)       8/12 (66.7%)        
+hybrid 800        12/12 (100.0%)      13/16 (81.2%)       11/12 (91.7%)       
+
+R@10:
+setting           attention (n=12)    moshi (n=16)        dynchunk (n=12)     
+bm25 200          12/12 (100.0%)      14/16 (87.5%)       10/12 (83.3%)       
+bm25 400          12/12 (100.0%)      13/16 (81.2%)       10/12 (83.3%)       
+bm25 800          12/12 (100.0%)      14/16 (87.5%)       11/12 (91.7%)       
+semantic 200      11/12 (91.7%)       12/16 (75.0%)       8/12 (66.7%)        
+semantic 400      12/12 (100.0%)      11/16 (68.8%)       8/12 (66.7%)        
+semantic 800      12/12 (100.0%)      13/16 (81.2%)       9/12 (75.0%)        
+hybrid 200        12/12 (100.0%)      12/16 (75.0%)       11/12 (91.7%)       
+hybrid 400        12/12 (100.0%)      13/16 (81.2%)       12/12 (100.0%)      
+hybrid 800        12/12 (100.0%)      14/16 (87.5%)       12/12 (100.0%)      
+
+R@budget:
+setting           attention (n=12)    moshi (n=16)        dynchunk (n=12)     
+bm25 200          12/12 (100.0%)      12/16 (75.0%)       10/12 (83.3%)       
+bm25 400          12/12 (100.0%)      12/16 (75.0%)       10/12 (83.3%)       
+bm25 800          12/12 (100.0%)      10/16 (62.5%)       8/12 (66.7%)        
+semantic 200      11/12 (91.7%)       10/16 (62.5%)       7/12 (58.3%)        
+semantic 400      12/12 (100.0%)      9/16 (56.2%)        6/12 (50.0%)        
+semantic 800      12/12 (100.0%)      8/16 (50.0%)        5/12 (41.7%)        
+hybrid 200        12/12 (100.0%)      12/16 (75.0%)       10/12 (83.3%)       
+hybrid 400        12/12 (100.0%)      10/16 (62.5%)       8/12 (66.7%)        
+hybrid 800        12/12 (100.0%)      11/16 (68.8%)       8/12 (66.7%)        
+
+### Per question type, base
+
+R@5:
+setting           fact (n=10)         method (n=10)       table (n=8)         paraphrase (n=5)    exact-term (n=4)    cross-section (n=3) 
+bm25 200          6/10 (60.0%)        8/10 (80.0%)        7/8 (87.5%)         5/5 (100.0%)        3/4 (75.0%)         3/3 (100.0%)        
+bm25 400          7/10 (70.0%)        9/10 (90.0%)        8/8 (100.0%)        5/5 (100.0%)        3/4 (75.0%)         3/3 (100.0%)        
+bm25 800          9/10 (90.0%)        9/10 (90.0%)        7/8 (87.5%)         5/5 (100.0%)        3/4 (75.0%)         3/3 (100.0%)        
+semantic 200      6/10 (60.0%)        9/10 (90.0%)        4/8 (50.0%)         4/5 (80.0%)         3/4 (75.0%)         2/3 (66.7%)         
+semantic 400      6/10 (60.0%)        9/10 (90.0%)        7/8 (87.5%)         2/5 (40.0%)         2/4 (50.0%)         1/3 (33.3%)         
+semantic 800      8/10 (80.0%)        9/10 (90.0%)        6/8 (75.0%)         3/5 (60.0%)         2/4 (50.0%)         3/3 (100.0%)        
+hybrid 200        7/10 (70.0%)        8/10 (80.0%)        4/8 (50.0%)         4/5 (80.0%)         3/4 (75.0%)         3/3 (100.0%)        
+hybrid 400        7/10 (70.0%)        9/10 (90.0%)        7/8 (87.5%)         3/5 (60.0%)         3/4 (75.0%)         2/3 (66.7%)         
+hybrid 800        8/10 (80.0%)        10/10 (100.0%)      7/8 (87.5%)         5/5 (100.0%)        3/4 (75.0%)         3/3 (100.0%)        
+
+R@10:
+setting           fact (n=10)         method (n=10)       table (n=8)         paraphrase (n=5)    exact-term (n=4)    cross-section (n=3) 
+bm25 200          8/10 (80.0%)        9/10 (90.0%)        8/8 (100.0%)        5/5 (100.0%)        3/4 (75.0%)         3/3 (100.0%)        
+bm25 400          7/10 (70.0%)        9/10 (90.0%)        8/8 (100.0%)        5/5 (100.0%)        3/4 (75.0%)         3/3 (100.0%)        
+bm25 800          9/10 (90.0%)        9/10 (90.0%)        8/8 (100.0%)        5/5 (100.0%)        3/4 (75.0%)         3/3 (100.0%)        
+semantic 200      7/10 (70.0%)        10/10 (100.0%)      4/8 (50.0%)         4/5 (80.0%)         4/4 (100.0%)        2/3 (66.7%)         
+semantic 400      7/10 (70.0%)        10/10 (100.0%)      7/8 (87.5%)         2/5 (40.0%)         3/4 (75.0%)         2/3 (66.7%)         
+semantic 800      8/10 (80.0%)        9/10 (90.0%)        7/8 (87.5%)         4/5 (80.0%)         3/4 (75.0%)         3/3 (100.0%)        
+hybrid 200        8/10 (80.0%)        10/10 (100.0%)      7/8 (87.5%)         4/5 (80.0%)         3/4 (75.0%)         3/3 (100.0%)        
+hybrid 400        8/10 (80.0%)        10/10 (100.0%)      8/8 (100.0%)        5/5 (100.0%)        3/4 (75.0%)         3/3 (100.0%)        
+hybrid 800        9/10 (90.0%)        10/10 (100.0%)      8/8 (100.0%)        5/5 (100.0%)        3/4 (75.0%)         3/3 (100.0%)        
+
+R@budget:
+setting           fact (n=10)         method (n=10)       table (n=8)         paraphrase (n=5)    exact-term (n=4)    cross-section (n=3) 
+bm25 200          7/10 (70.0%)        9/10 (90.0%)        7/8 (87.5%)         5/5 (100.0%)        3/4 (75.0%)         3/3 (100.0%)        
+bm25 400          7/10 (70.0%)        8/10 (80.0%)        8/8 (100.0%)        5/5 (100.0%)        3/4 (75.0%)         3/3 (100.0%)        
+bm25 800          7/10 (70.0%)        8/10 (80.0%)        5/8 (62.5%)         5/5 (100.0%)        3/4 (75.0%)         2/3 (66.7%)         
+semantic 200      6/10 (60.0%)        9/10 (90.0%)        4/8 (50.0%)         4/5 (80.0%)         3/4 (75.0%)         2/3 (66.7%)         
+semantic 400      6/10 (60.0%)        9/10 (90.0%)        7/8 (87.5%)         2/5 (40.0%)         2/4 (50.0%)         1/3 (33.3%)         
+semantic 800      6/10 (60.0%)        7/10 (70.0%)        6/8 (75.0%)         2/5 (40.0%)         2/4 (50.0%)         2/3 (66.7%)         
+hybrid 200        8/10 (80.0%)        10/10 (100.0%)      6/8 (75.0%)         4/5 (80.0%)         3/4 (75.0%)         3/3 (100.0%)        
+hybrid 400        7/10 (70.0%)        8/10 (80.0%)        7/8 (87.5%)         3/5 (60.0%)         3/4 (75.0%)         2/3 (66.7%)         
+hybrid 800        8/10 (80.0%)        7/10 (70.0%)        7/8 (87.5%)         4/5 (80.0%)         2/4 (50.0%)         3/3 (100.0%)        
+
+### Span-only hits at @budget (counted as hit, but phrase NOT on the stated page's own text)
+setting           hits@budget   strict@budget  span-only
+bm25 200          34            34             0
+bm25 400          34            34             0
+bm25 800          30            30             0
+semantic 200      28            28             0
+semantic 400      27            27             0
+semantic 800      25            25             0
+hybrid 200        34            34             0
+hybrid 400        30            30             0
+hybrid 800        31            31             0
+
+### 800-token averaging confound: averaged vectors vs best-matching piece (semantic, hybrid)
+setting                   R@5                 R@10                R@budget            
+semantic 800 averaged     31/40 (77.5%)       34/40 (85.0%)       25/40 (62.5%)       
+semantic 800 best-piece   31/40 (77.5%)       34/40 (85.0%)       22/40 (55.0%)       
+hybrid 800 averaged       36/40 (90.0%)       38/40 (95.0%)       31/40 (77.5%)       
+hybrid 800 best-piece     36/40 (90.0%)       38/40 (95.0%)       29/40 (72.5%)       
+
+### ROUTER ROW (separate; rule: route only on explicit paper names). Routed questions: 12/40 ['R13', 'R16', 'R26', 'R28', 'R29', 'R30', 'R33', 'R35', 'R36', 'R37', 'R38', 'R40']
+
+### With router, overall (n=40)
+setting           R@5                 R@10                R@budget            
+bm25 200          32/40 (80.0%)       36/40 (90.0%)       34/40 (85.0%)       
+bm25 400          35/40 (87.5%)       35/40 (87.5%)       34/40 (85.0%)       
+bm25 800          36/40 (90.0%)       38/40 (95.0%)       30/40 (75.0%)       
+semantic 200      28/40 (70.0%)       31/40 (77.5%)       28/40 (70.0%)       
+semantic 400      27/40 (67.5%)       31/40 (77.5%)       27/40 (67.5%)       
+semantic 800      31/40 (77.5%)       34/40 (85.0%)       25/40 (62.5%)       
+hybrid 200        29/40 (72.5%)       35/40 (87.5%)       34/40 (85.0%)       
+hybrid 400        31/40 (77.5%)       37/40 (92.5%)       30/40 (75.0%)       
+hybrid 800        36/40 (90.0%)       38/40 (95.0%)       31/40 (77.5%)       
+routed to a paper that is not the gold paper: none
+
+### Top-1 score distributions and gate (INDICATIVE: n=5 off-topic, n=5 near-miss). Answer if score >= threshold.
+threshold = lowest answerable top-1 (refuses no answerable question by construction). Hybrid uses the semantic signal.
+
+bm25:
+size  answerable (n=47) min/med/max   off-topic (sorted)                  near-miss (sorted)                  threshold  false-refusal  false-answer off  false-answer near  margin: min ans - max off
+200   10.4 21.4 51.2                  7.1 7.6 7.8 9.4 12.5                13.1 15.7 16.2 25.2 25.6            10.380     0/47 (0.0%)    1/5 (20.0%)       5/5 (100.0%)       -2.107 (lowest answerable 10.380, highest off-topic 12.487)
+400   9.6 21.0 51.6                   6.7 6.7 7.8 7.8 14.2                11.7 15.2 18.9 22.8 23.6            9.625      0/47 (0.0%)    1/5 (20.0%)       5/5 (100.0%)       -4.582 (lowest answerable 9.625, highest off-topic 14.207)
+800   7.9 20.8 44.5                   5.8 6.5 6.6 7.9 14.0                12.4 14.2 14.4 19.8 21.0            7.909      0/47 (0.0%)    1/5 (20.0%)       5/5 (100.0%)       -6.074 (lowest answerable 7.909, highest off-topic 13.983)
+
+semantic:
+size  answerable (n=47) min/med/max   off-topic (sorted)                  near-miss (sorted)                  threshold  false-refusal  false-answer off  false-answer near  margin: min ans - max off
+200   0.649 0.789 0.903               0.442 0.458 0.501 0.511 0.551       0.688 0.714 0.801 0.809 0.824       0.649      0/47 (0.0%)    0/5 (0.0%)        5/5 (100.0%)       +0.098 (lowest answerable 0.649, highest off-topic 0.551)
+400   0.626 0.770 0.860               0.441 0.452 0.489 0.522 0.536       0.626 0.726 0.769 0.773 0.785       0.626      0/47 (0.0%)    0/5 (0.0%)        4/5 (80.0%)        +0.090 (lowest answerable 0.626, highest off-topic 0.536)
+800   0.648 0.766 0.871               0.442 0.448 0.487 0.495 0.533       0.650 0.725 0.763 0.769 0.775       0.648      0/47 (0.0%)    0/5 (0.0%)        5/5 (100.0%)       +0.116 (lowest answerable 0.648, highest off-topic 0.533)
+
+### Missed questions at the best Recall@budget setting per retriever (tie-break: R@10, then smaller size)
+
+bm25 200 (k=8): 6 missed
+  R13 [fact] gold moshi p1 (first hit rank 10): What theoretical latency does the abstract report for Moshi, and what practical latency does it report?
+        18.468  moshi    p63     'the prestigious Musketeers. USER: So what is the story about? MOSHI: The story follow'
+        18.002  moshi    p27–28  'corresponding to the user stream as it does not include text tokens. Finally, we also'
+        17.276  moshi    p63–64  'USER: And what are some of your most famous pieces? MOSHI: His most famous novel is p'
+  R14 [fact] gold moshi p3 (first hit rank 79): How many parameters does Helium have, and how many tokens was it pretrained on?
+        16.822  moshi    p37     '0.6 | 0.13 0.8 | 0.19 1.0 | 0.16 ✓ | 0 | 100.00 single-stream ✓ | 0.8 | 98.40 ✓ | 0 |'
+        16.339  moshi    p6      'an online fashion, it does not benefit from the knowledge of a text language model, a'
+        16.021  moshi    p31     'ASR), but is rather designed to illustrate how Inner Monologue is flexible enough to '
+  R24 [table] gold moshi p8 (first hit rank 9): In Table 1, how many layers are listed for the Temporal Transformer?
+        11.060  moshi    p54–55  'to occur. Pair-wise matching and one-to-many comparison. With our signature extractio'
+        11.046  moshi    p13     'two Transformer models, as illustrated in Figure 3. It consists of a Temporal Transfo'
+        10.000  moshi    p14     'learnt embedding tables representing the value for the last Vs−1 . Given 1 < k ≤ K, t'
+  R27 [exact-term] gold moshi p20 (first hit rank 49): Which specific GPU model family does the paper name for training all models?
+        10.380  moshi    p30     'reducing the amount of parameters dedicated to textual knowledge, the very large diff'
+         9.761  dynchunk p37     'settings from the GPT-3 XL, including d model and encoder/decoder architecture for H-'
+         9.521  attentionp2      'being trained for as little as twelve hours on eight P100 GPUs. 2 Background The goal'
+  R29 [fact] gold dynchunk p3 (first hit rank 15): Approximately how many raw bytes does a learned H-Net chunk contain, according to the reported empirical compression?
+        18.055  dynchunk p18     '(2-stage) Compression Ratio L 1/L 0 0.38 1.05 Compression Ratio L 2/L 1 Total Trainin'
+        17.436  dynchunk p16     'Code (Pile Github) 0.44 Validation Bits-per-byte Total Training Bytes H-Net (2-stage)'
+        15.984  dynchunk p15–16  'conventional language modeling, we also examine three other language modeling setting'
+  R30 [method] gold dynchunk p2 (first hit rank 17): What two learned modules make up Dynamic Chunking, and what does each contribute to segmentation or decompression?
+        15.180  dynchunk p2      'models or nesting multi-level hierarchies. Fundamentally, creating a tokenizer-free a'
+        14.245  moshi    p64     'USER: yeah. USER: I’d like to learn about Maroom? MOSHI: I’m sorry, I did not catch t'
+        13.464  dynchunk p1      'Dynamic Chunking for End-to-End Hierarchical Sequence Modeling Sukjun Hwang Carnegie '
+
+semantic 200 (k=8): 12 missed
+  R08 [table] gold attention p8 (first hit rank 14): What English-to-German BLEU score does Table 2 report for the Transformer base model?
+         0.806  attentionp8      'more unsure, but improves accuracy and BLEU score. 6 | Results 6.1 | Machine Translat'
+         0.714  dynchunk p12–13  '(Gao, Tow, et al. 2024) for models at Large and XL scales. SpaceByte++, H-Net (space)'
+         0.710  attentionp8–9    'architectures from the literature. We estimate the number of floating point operation'
+  R13 [fact] gold moshi p1 (first hit rank 66): What theoretical latency does the abstract report for Moshi, and what practical latency does it report?
+         0.694  moshi    p36     'Appendix D reports our detailed toxicity analysis on this benchmark. The aggregated s'
+         0.675  moshi    p25–26  'However, perplexities are not com- parable between models with various delays, as the'
+         0.675  moshi    p24     'and 100. This human evaluation shows a significant improvement from using adversarial'
+  R14 [fact] gold moshi p3 (first hit rank 49): How many parameters does Helium have, and how many tokens was it pretrained on?
+         0.649  moshi    p32–33  'down to 4 bits. For lower bitwidths however, we observe qualitatively that the MOSNet'
+         0.647  moshi    p19–20  'the model to answer “No” and correct the user. Otherwise, the vast majority of genera'
+         0.646  moshi    p7      'these components. We then describe the training datasets and the different training p'
+  R17 [table] gold moshi p8 (first hit rank 86): According to Table 1, what text-token batch size is used for Helium pretraining?
+         0.761  moshi    p20     '0.9, and a decay for the online average of the squared gradient of 0.95. All models a'
+         0.739  moshi    p20     'probability of 30%. We randomize the delay between the text and audio tokens between '
+         0.735  dynchunk p11     'from the FineWeb-Edu dataset (Penedo et al. 2024). All tokenizer-free models process '
+  R23 [method] gold moshi p16 (first hit rank 10): How do changing the text/audio delay and choosing which stream to teacher-force produce streaming ASR versus streaming TTS?
+         0.792  moshi    p31     'performs as well as the cascaded model in terms of linguistic quality, despite being '
+         0.783  moshi    p55     'training segment and the synthesized duplicate signature file. We use the segment for'
+         0.783  moshi    p31     'seconds, giving some lookahead to the text tokens, and teacher forcing text tokens at'
+  R25 [cross-section] gold moshi p17 (first hit rank 20): When the multi-stream design and Inner Monologue are combined, how many parallel token streams are modeled in the experiments?
+         0.755  moshi    p31     'ASR), but is rather designed to illustrate how Inner Monologue is flexible enough to '
+         0.750  moshi    p41     'real-time spoken dialogue system with a 160ms theoretical latency able to follow comp'
+         0.737  moshi    p20     'streams described in Section 3.4.3. The text stream only contains the text tokens fro'
+  R27 [exact-term] gold moshi p20 (first hit rank 9): Which specific GPU model family does the paper name for training all models?
+         0.695  attentionp8–9    'architectures from the literature. We estimate the number of floating point operation'
+         0.669  attentionp7      'containing approximately 25000 source tokens and 25000 target tokens. 5.2 Hardware an'
+         0.653  dynchunk p37     'settings from the GPT-3 XL, including d model and encoder/decoder architecture for H-'
+  R29 [fact] gold dynchunk p3 (first hit rank 13): Approximately how many raw bytes does a learned H-Net chunk contain, according to the reported empirical compression?
+         0.797  dynchunk p18–19  'maintain consistent compression ratios and lead to more interpretable chunking patter'
+         0.780  dynchunk p18     '(2-stage) Compression Ratio L 1/L 0 0.38 1.05 Compression Ratio L 2/L 1 Total Trainin'
+         0.779  dynchunk p36–37  'strategies in the chunking layer. We compare the default Downsample operation of H-Ne'
+  R34 [fact] gold dynchunk p6 (first hit rank 10): How many layers does the paper use in each encoder and decoder network?
+         0.779  attentionp2–3    'time. At each step the model is auto-regressive [10], consuming the previously genera'
+         0.765  dynchunk p5      'fine-grained data including audio (Goel et al. 2022), DNA sequences (Schiff et al. 20'
+         0.765  dynchunk p37     'encoder network does not appear to be helpful for text (Figure 8). Thus, it is possib'
+  R35 [table] gold dynchunk p11 (first hit rank 26): In Table 1, under the '#FLOPs matched to GPT-3 Large' section, how many parameters does H-Net (1-stage) have?
+         0.763  dynchunk p22     'performance. We did not attempt a 3-stage H-Net at all for simplicity. Testing if H-N'
+         0.747  dynchunk p20     '680M) H-Net (2-stage, 870M) Total Training Bytes Figure 11: Hybrid main network. Bits'
+         0.743  dynchunk p12     'FLOP-matched sliding window attention (SWA) variant and even the global attention var'
+  R36 [table] gold dynchunk p11 (first hit rank 15): In Table 1, under the '#FLOPs matched to GPT-3 Large' section, what BPIC value does H-Net (2-stage) have?
+         0.806  dynchunk p16–17  'trained on the HG38 dataset with a learning rate of 5 · 10−3 for modules at the base-'
+         0.758  dynchunk p12     'FLOP-matched sliding window attention (SWA) variant and even the global attention var'
+         0.749  dynchunk p12–13  '(Gao, Tow, et al. 2024) for models at Large and XL scales. SpaceByte++, H-Net (space)'
+  R39 [paraphrase] gold dynchunk p4 (first hit rank 58): What data-efficiency improvement does the paper report for DNA sequence modeling compared with isotropic baselines?
+         0.789  dynchunk p17     '| 5B | 6B | 7B | 8B HG38. We trained two isotropic models and two H-Net | Training Ba'
+         0.771  dynchunk p16–17  'Additionally, the same sequence of base pairs may serve different functions (e.g., de'
+         0.769  dynchunk p10     'high-quality English dataset, showing significantly stronger performance than baselin'
+
+hybrid 200 (k=8): 6 missed
+  R13 [fact] gold moshi p1 (first hit rank 19): What theoretical latency does the abstract report for Moshi, and what practical latency does it report?
+         0.675  moshi    p25–26  'However, perplexities are not com- parable between models with various delays, as the'
+         0.662  moshi    p1      'Moshi: a speech-text foundation model for real-time dialogue Alexandre Défossez∗ Laur'
+         0.640  moshi    p26     'in the Depth Transformer, rather than having shared weights across levels. Finally, t'
+  R14 [fact] gold moshi p3 (first hit rank 52): How many parameters does Helium have, and how many tokens was it pretrained on?
+         0.647  moshi    p19–20  'the model to answer “No” and correct the user. Otherwise, the vast majority of genera'
+         0.580  moshi    p32     'well as the Depth Transformer weights. In fact, we find that the Depth Transformer is'
+         0.643  moshi    p22     '8.0% | 2.45 | 2.88 | 68.3±1.7 ✓ | ✓ | ✓ | ✓ | ✓ | 8.1% | 2.82 | 2.89 | 64.0±1.7 Basel'
+  R17 [table] gold moshi p8 (first hit rank 21): According to Table 1, what text-token batch size is used for Helium pretraining?
+         0.761  moshi    p20     '0.9, and a decay for the online average of the squared gradient of 0.95. All models a'
+         0.739  moshi    p20     'probability of 30%. We randomize the delay between the text and audio tokens between '
+         0.729  moshi    p32     'model trained on text-only data used as foundation for Moshi (Table 10), as well as f'
+  R27 [exact-term] gold moshi p20 (first hit rank 14): Which specific GPU model family does the paper name for training all models?
+         0.653  dynchunk p37     'settings from the GPT-3 XL, including d model and encoder/decoder architecture for H-'
+         0.669  attentionp7      'containing approximately 25000 source tokens and 25000 target tokens. 5.2 Hardware an'
+         0.647  attentionp2      'being trained for as little as twelve hours on eight P100 GPUs. 2 Background The goal'
+  R35 [table] gold dynchunk p11 (first hit rank 9): In Table 1, under the '#FLOPs matched to GPT-3 Large' section, how many parameters does H-Net (1-stage) have?
+         0.735  dynchunk p12–13  'Transformer layers have 12(D s ) 2 parameters in stage s. #FLOPs matched to GPT-3 Lar'
+         0.743  dynchunk p12     'FLOP-matched sliding window attention (SWA) variant and even the global attention var'
+         0.739  dynchunk p37     'settings from the GPT-3 XL, including d model and encoder/decoder architecture for H-'
+  R39 [paraphrase] gold dynchunk p4 (first hit rank 13): What data-efficiency improvement does the paper report for DNA sequence modeling compared with isotropic baselines?
+         0.789  dynchunk p17     '| 5B | 6B | 7B | 8B HG38. We trained two isotropic models and two H-Net | Training Ba'
+         0.769  dynchunk p10     'high-quality English dataset, showing significantly stronger performance than baselin'
+         0.736  dynchunk p37     'settings from the GPT-3 XL, including d model and encoder/decoder architecture for H-'
