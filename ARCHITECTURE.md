@@ -111,3 +111,7 @@ Changes to this file need an explicit decision + reason in the changelog at the 
 ## Changelog
 
 - 2026-11-14: locked. Reranker dropped (user decision: cut scope; hybrid + RRF only).
+- 2026-11-14: PDF extraction PyMuPDF → poppler `pdftotext` (user decision). Reason: already installed, clean reading
+  order on all three papers, `-layout` keeps table rows aligned; headings handled by regex instead of font sizes.
+  Table pages (a "Table N:" caption) use `-layout`. Known limits: powers of ten flatten (10^20 → "1020");
+  plot ticks survive on pages that mix a plot and a table.
