@@ -1,0 +1,7 @@
+{"ts": "2026-11-14T14:29:54.133831+00:00", "setting": "default", "qid": "A01", "auto_grade": "correct", "user_grade": "correct", "changed": false, "reason": "confirmed", "graded_by": "user"}
+{"ts": "2026-11-14T14:29:54.133831+00:00", "setting": "default", "qid": "A02", "auto_grade": "correct", "user_grade": "correct", "changed": false, "reason": "confirmed", "graded_by": "user"}
+{"ts": "2026-11-14T14:29:54.133831+00:00", "setting": "default", "qid": "A04", "auto_grade": "correct", "user_grade": "correct", "changed": false, "reason": "confirmed", "graded_by": "user"}
+{"ts": "2026-11-14T14:29:54.133831+00:00", "setting": "default", "qid": "A05", "auto_grade": "correct", "user_grade": "correct", "changed": false, "reason": "confirmed", "graded_by": "user"}
+{"ts": "2026-11-14T14:29:54.133831+00:00", "setting": "default", "qid": "A07", "auto_grade": "correct", "user_grade": "correct", "changed": false, "reason": "confirmed", "graded_by": "user"}
+{"ts": "2026-11-14T14:29:54.133831+00:00", "setting": "default", "qid": "A06", "auto_grade": "wrong", "user_grade": "correct", "changed": true, "reason": "paraphrase of the same fact, cites p.6 which covers the evidence page", "graded_by": "user"}
+{"ts": "2026-11-14T14:29:54.133831+00:00", "setting": "default", "qid": "A03", "auto_grade": "wrong", "user_grade": "wrong", "changed": false, "reason": "gold evidence not retrieved; answer built from the abstract, no p.3 citation; kept as the retrieval-miss example for judge-rejection causes", "graded_by": "user"}
