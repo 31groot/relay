@@ -120,4 +120,6 @@ Changes to this file need an explicit decision + reason in the changelog at the 
   before §2.1 is labelled "1 Introduction"); the last chunk before each gap is short (5–6 per size).
 - 2026-11-14: embeddings (Phase 2.3b): bge-small-en-v1.5 via onnxruntime, CLS pooling + normalize; chunks over the
   512-token window split into equal pieces, averaged, renormalized; query instruction on queries only.
-  Known gap: DC has letter-spaced words ("p r o d u c t", "n e w") from extraction; not cleaned.
+  Known gap: DC p7 Figure 2 spells "...new product!" byte by byte ("n e w _ p r o d u c t ! _", 6 lines);
+  deliberate figure text, not an extraction defect. Not joined (user decision): the caption and body text
+  on p7 contain "new product!" as normal words.
