@@ -24,29 +24,50 @@ GEN_MODEL, JUDGE_MODEL = "openai/gpt-oss-120b", "openai/gpt-oss-20b"
 GEN_MAX, JUDGE_MAX = 350, 150
 GATE = 0.60          # semantic top-1 cosine at size 200 (Phase 3 checkpoint, indicative)
 SIZE, TOP_K = 200, 8
+GATE_SIZE = 200   # gate always on size-200 semantic scores (calibration size)
 TOKEN_CAP, CALL_CAP = 10_000, 8   # smoke-test budget per model / total calls (NOTES.md)
 CHARS_PER_TOKEN_EST = 3.2         # min observed 3.37 on logged pipeline prompts (P4-2 judge) → ~5% margin; was 4.0 (underestimated up to 12%)
 TEMPLATE_OVERHEAD = 80            # measured gpt-oss chat-template tokens (probe)
 PACING_MARGIN = 100               # tokens of safety on top of prompt + max_tokens when pacing
 
 
-class Retriever:
-    """Hybrid (RRF over BM25 + semantic), size-200 chunks. Gate signal = semantic top-1 cosine among searched papers."""
+_INDEX = None
 
-    def __init__(self):
+
+def _index():
+    """(chunks, embeddings, embedder), loaded once per process and shared by all settings."""
+    global _INDEX
+    if _INDEX is None:
         import embed
         chunks, emb = embed.load_index()
-        self.idx = np.array([i for i, c in enumerate(chunks) if c["size"] == SIZE])
+        _INDEX = (chunks, emb, embed.Embedder())
+    return _INDEX
+
+
+class Retriever:
+    """One retrieval setting: method "hybrid" (RRF over BM25 + semantic) or "bm25", chunk size, top_k.
+    The GATE signal is always the semantic top-1 cosine over size-200 chunks (the size the 0.60 gate was calibrated
+    on), whatever the setting's method or size, so every setting refuses exactly the same questions."""
+
+    def __init__(self, size=SIZE, method="hybrid", top_k=TOP_K):
+        chunks, emb, self.embedder = _index()
+        rows = lambda n: np.array([i for i, c in enumerate(chunks) if c["size"] == n])
+        self.idx, gate_idx = rows(size), rows(GATE_SIZE)
         self.chunks, self.emb = [chunks[i] for i in self.idx], emb[self.idx]
-        self.bm25, self.embedder = retrieve.BM25([c["text"] for c in self.chunks]), embed.Embedder()
+        self.gate_chunks, self.gate_emb = [chunks[i] for i in gate_idx], emb[gate_idx]
+        self.method, self.top_k, self.setting = method, top_k, f"{method} {size} top-{top_k}"
+        self.bm25 = retrieve.BM25([c["text"] for c in self.chunks])
 
     def search(self, question, papers=None):
-        sem = self.emb @ self.embedder.embed_queries([question])[0]
-        fused = retrieve.rrf(retrieve.rank(self.bm25.scores(question)), retrieve.rank(sem))
-        allowed = [j for j in fused if papers is None or self.chunks[j]["paper"] in papers]
-        keep = set(allowed[:TOP_K])
-        top = [(self.chunks[j], rank) for rank, j in enumerate(fused, 1) if j in keep]  # rank = hybrid rank over all papers
-        return top, float(max(sem[j] for j in allowed))
+        q = self.embedder.embed_queries([question])[0]
+        by_bm25 = retrieve.rank(self.bm25.scores(question))
+        order = by_bm25 if self.method == "bm25" else retrieve.rrf(by_bm25, retrieve.rank(self.emb @ q))
+        allowed = [j for j in order if papers is None or self.chunks[j]["paper"] in papers]
+        keep = set(allowed[:self.top_k])
+        top = [(self.chunks[j], rank) for rank, j in enumerate(order, 1) if j in keep]  # rank over all papers
+        gate_sem = self.gate_emb @ q
+        gate = max(float(gate_sem[j]) for j, c in enumerate(self.gate_chunks) if papers is None or c["paper"] in papers)
+        return top, gate
 
 
 class Budget:
@@ -181,12 +202,13 @@ class Pipeline:
         res = {"type": "request", "request_id": rid, "question": question, "attempts": []}
         papers = retrieve.route(question)
         top, score = self.retriever.search(question, papers)
-        res.update(routed=sorted(papers) if papers else None, broadened=False)
+        res.update(routed=sorted(papers) if papers else None, broadened=False,
+                   retrieval=getattr(self.retriever, "setting", None))
         if score < GATE and papers:  # [4] weak in the routed paper → re-search all papers once before refusing
             top, score = self.retriever.search(question, None)
             res["broadened"] = True
         res.update(gate_score=round(score, 4), retrieved=[{"label": f"S{n}", "chunk_id": c["chunk_id"], "paper": c["paper"],
-                   "pages": prompts.pages(c), "hybrid_rank": int(r)} for n, (c, r) in enumerate(top, 1)])
+                   "pages": prompts.pages(c), "rank": int(r)} for n, (c, r) in enumerate(top, 1)])
         if score < GATE:
             return self._finish(res, "refused", "gate", None)
         chunks = [c for c, _ in top]
@@ -242,7 +264,7 @@ def show(res):
     print(f"route: {res['routed'] or 'all papers'}{'  → broadened to all papers' if res['broadened'] else ''}   "
           f"gate score (semantic top-1): {res['gate_score']}  (gate {GATE})")
     for r in res["retrieved"]:
-        print(f"   {r['label']:<4}{r['paper']:<10}{r['pages']:<10}hybrid rank {r['hybrid_rank']:<4}{r['chunk_id']}")
+        print(f"   {r['label']:<4}{r['paper']:<10}{r['pages']:<10}rank {r.get('rank', r.get('hybrid_rank')):<4}{r['chunk_id']}")
     for a in res["attempts"]:
         print(f"-- attempt {a['attempt']} raw generator output ({a['gen_tokens']} tokens, paced {a['gen_pace_wait_s']} s):"
               f"\n{json.dumps(a['raw_output'], ensure_ascii=True)}")
