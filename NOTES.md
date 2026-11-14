@@ -292,3 +292,18 @@ computation and improves training" was UNSUPPORTED twice (baseline run + lead re
 - **A correction should NOT widen retrieval:** the only answerable judge rejection (A01) had its gold evidence
   retrieved (a generation problem, not retrieval); A03 was a retrieval miss that the judge SUPPORTED, so widening on
   rejection would not have triggered for it.
+
+## 2026-11-14 — Phase 5 wide-context run (hybrid 800, top-2) — grades and evidence
+
+Ran on the SAME UTC day's evaluation share (not a fresh day): 120b 26,080 tokens (day total 81,624 / 100K),
+20b 9,669 (41,738 / 100K). No 429, no truncated judge (largest judge completion 323 tokens).
+
+- **Wide A03 — qualifies (does not reverse) the checkpoint conclusion "a correction should not widen retrieval":**
+  n=1 judge rejection CAUSED BY A RETRIEVAL MISS. At 800/top-2 the retrieved chunks (pp.5–6, pp.15–16) held neither
+  the gold p.3 nor the abstract; both attempts were judged UNSUPPORTED and the answer was refused after one correction
+  (grade refused_wrongly, no footnote). Widening retrieval on rejection could have helped here; default and baseline
+  rejections (A01) had the evidence retrieved.
+- **Wide A07 — second "correct fact, different page" case** (after A03 default/baseline): "overtakes the BPE
+  Transformer after 30 B training bytes", cited to pp.12–13 (gold p.4 not retrieved); grade wrong (missing
+  "perplexity", "tokenized Transformer"), footnote "fact correct, different page".
+- Wide A06 overridden wrong → correct (same paraphrase rule); A01, A02, A04, A05 confirmed.

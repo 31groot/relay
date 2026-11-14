@@ -1,0 +1,4 @@
+setting,questions_asked,correct_and_cited,wrong,refused_wrongly,correctly_refused,correctly_refused_off_topic,correctly_refused_near_miss,tokens_per_question_mean_all17,tokens_per_released_answer_mean,timed_n,first_token_p50_p95_ms,total_p50_p95_ms,service_only_p50_p95_ms,model_first_token_p50_p95_ms
+"200 tok, 8 pieces, hybrid RRF, no rerank",17,6/17 (35.3%),1/17 (5.9%),0/17 (0.0%),10/17 (58.8%),5/5 (100.0%),5/5 (100.0%),2075,3508,12,15070 / 41064,15070 / 41064,1270 / 4344,671 / 2084
+"200 tok, 8 pieces, BM25, no rerank",17,6/17 (35.3%),1/17 (5.9%),0/17 (0.0%),10/17 (58.8%),5/5 (100.0%),5/5 (100.0%),1964,3306,12,15104 / 26264,15104 / 26264,1316 / 2851,780 / 1745
+"800 tok, 2 pieces, hybrid RRF, no rerank",17,5/17 (29.4%),1/17 (5.9%),1/17 (5.9%),10/17 (58.8%),5/5 (100.0%),5/5 (100.0%),2103,3187,12,14526 / 24083,14526 / 24083,1152 / 3256,652 / 1715
