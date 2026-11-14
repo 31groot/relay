@@ -159,3 +159,35 @@ def test_analyze_reports_header_deltas(log):
     probe.analyze(log, out=out.append)
     line = out[1].split()
     assert line[:6] == ["m", "4", "24.0", "95", "300", "1"]
+
+
+def test_tpm429_stage_sends_8000_and_cap_uses_it(log):
+    bodies = []
+
+    def handler(request):
+        bodies.append(json.loads(request.content))
+        return httpx.Response(429, headers={"retry-after": "3"}, json={"error": {"message": "tpm"}})
+
+    # 9,690 already spent (real state) + worst case 8,090 = 17,780 <= 20,000 -> call goes out
+    log.write_text(json.dumps({"tokens_charged": 9690}) + "\n")
+    probe.run("tpm429", make_client(handler), FAKE_KEY, log, sleep=lambda s: None, out=lambda m: None)
+    assert len(bodies) == 1
+    assert bodies[0]["model"] == "openai/gpt-oss-20b" and bodies[0]["max_completion_tokens"] == 8000
+    assert rows_of(log)[-1]["max_tokens"] == 8000
+
+    # 12,000 spent + 8,090 > 20,000 -> refused before any request
+    log.write_text(json.dumps({"tokens_charged": 12000}) + "\n")
+    msgs = []
+    probe.run("tpm429", make_client(handler), FAKE_KEY, log, sleep=lambda s: None, out=msgs.append)
+    assert len(bodies) == 1 and any("token cap" in m for m in msgs)
+
+
+def test_other_stages_still_use_300(log):
+    bodies = []
+
+    def handler(request):
+        bodies.append(json.loads(request.content))
+        return httpx.Response(200, text=OK_STREAM)
+
+    probe.run("pilot", make_client(handler), FAKE_KEY, log, sleep=lambda s: None, out=lambda m: None)
+    assert {b["max_completion_tokens"] for b in bodies} == {300}

@@ -22,6 +22,7 @@ LOG = ROOT / "results" / "probe_log.jsonl"
 # Lowest reasoning setting per model, from https://console.groq.com/docs/reasoning (2026-11-14).
 MODELS = {"openai/gpt-oss-120b": "low", "openai/gpt-oss-20b": "low", "qwen/qwen3.8-27b": "none"}
 MAX_TOKENS = 300
+STAGE_MAX_TOKENS = {"tpm429": 8000}  # 1.2: prompt + 8000 > the whole 8K TPM bucket
 CALL_CAP = 50          # all stages combined, counted from the log
 TOKEN_CAP = 20_000     # all stages combined, counted from the log
 PAUSE_S = 8
@@ -51,6 +52,8 @@ def plan(stage):
     """List of (model, kind, prompt), interleaved round-robin across models."""
     if stage == "pilot":
         return [(m, "short", PILOT_Q) for m in MODELS]
+    if stage == "tpm429":
+        return [("openai/gpt-oss-20b", "tpm429", "Reply with the single word OK.")]
     rounds = [("short", q) for q in SHORT_QS] + [
         ("medium", passage_prompt("medium", "How many identical layers make up the encoder, and what are its two sub-layers?")),
         ("large", passage_prompt("large", "How many attention heads are used, and what are d_k and d_v?")),
@@ -58,10 +61,10 @@ def plan(stage):
     return [(m, kind, prompt) for kind, prompt in rounds for m in MODELS]
 
 
-def worst_case_tokens(prompt):
+def worst_case_tokens(prompt, max_tokens=MAX_TOKENS):
     # Conservative: ~3 chars/token (English is ~4) + chat-template overhead + full max_tokens.
     # 80 overhead: pilot measured 82 prompt tokens on gpt-oss for a 43-char question (~60 template tokens).
-    return len(prompt) // 3 + 80 + MAX_TOKENS
+    return len(prompt) // 3 + 80 + max_tokens
 
 
 def prior_usage(log_path):
@@ -107,15 +110,15 @@ def parse_stream(lines, t0, row):
     row["reasoning_tokens"] = (usage.get("completion_tokens_details") or {}).get("reasoning_tokens")
 
 
-def call_once(client, key, model, prompt):
-    row = {"model": model, "reasoning_effort": MODELS[model], "max_tokens": MAX_TOKENS,
+def call_once(client, key, model, prompt, max_tokens=MAX_TOKENS):
+    row = {"model": model, "reasoning_effort": MODELS[model], "max_tokens": max_tokens,
            "http_status": None, "finish_reason": None, "first_chunk_ms": None, "first_content_ms": None}
     body = {
         "model": model,
         "messages": [{"role": "user", "content": prompt}],
         "stream": True,
         "stream_options": {"include_usage": True},
-        "max_completion_tokens": MAX_TOKENS,
+        "max_completion_tokens": max_tokens,
         "temperature": 0,
         "reasoning_effort": MODELS[model],
     }
@@ -136,7 +139,7 @@ def call_once(client, key, model, prompt):
     row["total_ms"] = round((now() - t0) * 1000, 1)
     total = (row.get("usage") or {}).get("total_tokens")
     # No usage reported (error, cut stream) → charge the worst case so the cap stays safe.
-    row["tokens_charged"] = total if total is not None else worst_case_tokens(prompt)
+    row["tokens_charged"] = total if total is not None else worst_case_tokens(prompt, max_tokens)
     return row
 
 
@@ -146,6 +149,7 @@ def run(stage, client, key, log_path=LOG, sleep=time.sleep, out=print):
 
     log_path.parent.mkdir(parents=True, exist_ok=True)
     calls, tokens = prior_usage(log_path)
+    max_tokens = STAGE_MAX_TOKENS.get(stage, MAX_TOKENS)
     dead, rows = set(), []
     for model, kind, prompt in plan(stage):
         if model in dead:
@@ -153,13 +157,14 @@ def run(stage, client, key, log_path=LOG, sleep=time.sleep, out=print):
         if calls >= CALL_CAP:
             say(f"STOP: call cap reached ({calls}/{CALL_CAP})")
             break
-        if tokens + worst_case_tokens(prompt) > TOKEN_CAP:
-            say(f"STOP: token cap would be exceeded ({tokens} used + {worst_case_tokens(prompt)} worst case > {TOKEN_CAP})")
+        worst = worst_case_tokens(prompt, max_tokens)
+        if tokens + worst > TOKEN_CAP:
+            say(f"STOP: token cap would be exceeded ({tokens} used + {worst} worst case > {TOKEN_CAP})")
             break
         if rows:
             sleep(PAUSE_S)
         ts = datetime.now(timezone.utc).isoformat()
-        row = {"ts": ts, "stage": stage, "call_no": calls + 1, "prompt_kind": kind, **call_once(client, key, model, prompt)}
+        row = {"ts": ts, "stage": stage, "call_no": calls + 1, "prompt_kind": kind, **call_once(client, key, model, prompt, max_tokens)}
         calls += 1
         tokens += row["tokens_charged"]
         rows.append(row)
@@ -213,7 +218,7 @@ def analyze(log_path=LOG, out=print):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--stage", choices=["pilot", "full", "analyze"], required=True)
+    ap.add_argument("--stage", choices=["pilot", "full", "tpm429", "analyze"], required=True)
     args = ap.parse_args()
     if args.stage == "analyze":
         return analyze()
