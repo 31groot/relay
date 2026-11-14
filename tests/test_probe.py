@@ -191,3 +191,16 @@ def test_other_stages_still_use_300(log):
 
     probe.run("pilot", make_client(handler), FAKE_KEY, log, sleep=lambda s: None, out=lambda m: None)
     assert {b["max_completion_tokens"] for b in bodies} == {300}
+
+
+def test_maxtok2000_stage_same_prompt_2000(log):
+    bodies = []
+
+    def handler(request):
+        bodies.append(json.loads(request.content))
+        return httpx.Response(200, text=OK_STREAM)
+
+    probe.run("maxtok2000", make_client(handler), FAKE_KEY, log, sleep=lambda s: None, out=lambda m: None)
+    assert len(bodies) == 1 and bodies[0]["max_completion_tokens"] == 2000
+    assert bodies[0]["model"] == "openai/gpt-oss-20b"
+    assert bodies[0]["messages"][0]["content"] == "Reply with the single word OK."

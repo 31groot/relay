@@ -22,7 +22,8 @@ LOG = ROOT / "results" / "probe_log.jsonl"
 # Lowest reasoning setting per model, from https://console.groq.com/docs/reasoning (2026-11-14).
 MODELS = {"openai/gpt-oss-120b": "low", "openai/gpt-oss-20b": "low", "qwen/qwen3.8-27b": "none"}
 MAX_TOKENS = 300
-STAGE_MAX_TOKENS = {"tpm429": 8000}  # 1.2: prompt + 8000 > the whole 8K TPM bucket
+STAGE_MAX_TOKENS = {"tpm429": 8000,     # 1.2: prompt + 8000 > the whole 8K TPM bucket (was accepted: 200)
+                    "maxtok2000": 2000}  # 1.2(a): does the TPM drop scale with max_tokens?
 CALL_CAP = 50          # all stages combined, counted from the log
 TOKEN_CAP = 20_000     # all stages combined, counted from the log
 PAUSE_S = 8
@@ -52,8 +53,8 @@ def plan(stage):
     """List of (model, kind, prompt), interleaved round-robin across models."""
     if stage == "pilot":
         return [(m, "short", PILOT_Q) for m in MODELS]
-    if stage == "tpm429":
-        return [("openai/gpt-oss-20b", "tpm429", "Reply with the single word OK.")]
+    if stage in STAGE_MAX_TOKENS:
+        return [("openai/gpt-oss-20b", stage, "Reply with the single word OK.")]
     rounds = [("short", q) for q in SHORT_QS] + [
         ("medium", passage_prompt("medium", "How many identical layers make up the encoder, and what are its two sub-layers?")),
         ("large", passage_prompt("large", "How many attention heads are used, and what are d_k and d_v?")),
@@ -218,7 +219,7 @@ def analyze(log_path=LOG, out=print):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--stage", choices=["pilot", "full", "tpm429", "analyze"], required=True)
+    ap.add_argument("--stage", choices=["pilot", "full", "tpm429", "maxtok2000", "analyze"], required=True)
     args = ap.parse_args()
     if args.stage == "analyze":
         return analyze()
