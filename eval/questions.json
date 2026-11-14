@@ -1,0 +1,581 @@
+{
+  "metadata": {
+    "description": "Ground-truth benchmark questions authored from the three supplied PDFs.",
+    "page_numbering": "1-based physical PDF page numbers, not printed page labels.",
+    "retrieval_count": 40,
+    "answer_count": 17,
+    "retrieval_counts_by_paper": {
+      "attention": 12,
+      "moshi": 16,
+      "dynchunk": 12
+    },
+    "answer_counts": {
+      "answerable": 7,
+      "off-topic": 5,
+      "near-miss": 5
+    },
+    "validation": {
+      "retrieval_key_phrases_checked_against_stated_physical_pdf_pages": true,
+      "answerable_evidence_phrases_checked_against_stated_physical_pdf_pages": true,
+      "all_refusal_questions_searched_across_all_three_pdfs": true
+    },
+    "source_pdfs": {
+      "attention": "1706.03762v7.pdf",
+      "moshi": "2410.00037v1.pdf",
+      "dynchunk": "2507.07955v2.pdf"
+    }
+  },
+  "retrieval_questions": [
+    {
+      "id": "R01",
+      "paper": "attention",
+      "type": "fact",
+      "question": "How many identical layers are in the Transformer encoder stack?",
+      "page": 3,
+      "key_phrase": "N = 6 identical layers"
+    },
+    {
+      "id": "R02",
+      "paper": "attention",
+      "type": "fact",
+      "question": "What model width (d_model) do the Transformer sub-layers and embeddings use?",
+      "page": 3,
+      "key_phrase": "dmodel = 512"
+    },
+    {
+      "id": "R03",
+      "paper": "attention",
+      "type": "method",
+      "question": "How does scaled dot-product attention turn query-key scores into weights over the values?",
+      "page": 4,
+      "key_phrase": "apply a softmax function to obtain the weights"
+    },
+    {
+      "id": "R04",
+      "paper": "attention",
+      "type": "paraphrase",
+      "question": "Why do the authors shrink query-key dot products before softmax, particularly when the key dimension is large?",
+      "page": 4,
+      "key_phrase": "extremely small gradients",
+      "alt_phrases": [
+        "scale the dot products by"
+      ]
+    },
+    {
+      "id": "R05",
+      "paper": "attention",
+      "type": "exact-term",
+      "question": "What exact number of parallel attention heads does the paper use?",
+      "page": 5,
+      "key_phrase": "h = 8 parallel attention layers, or heads",
+      "alt_phrases": [
+        "dk = dv = dmodel/h = 64"
+      ]
+    },
+    {
+      "id": "R06",
+      "paper": "attention",
+      "type": "method",
+      "question": "How does decoder self-attention stop a position from using later output positions?",
+      "page": 5,
+      "key_phrase": "masking out (setting to −∞) all values in the input of the softmax"
+    },
+    {
+      "id": "R07",
+      "paper": "attention",
+      "type": "table",
+      "question": "In Table 1, what maximum-path-length expression is reported for restricted self-attention?",
+      "page": 6,
+      "key_phrase": "O(n/r)"
+    },
+    {
+      "id": "R08",
+      "paper": "attention",
+      "type": "table",
+      "question": "What English-to-German BLEU score does Table 2 report for the Transformer base model?",
+      "page": 8,
+      "key_phrase": "27.3",
+      "alt_phrases": [
+        "Transformer (base model)"
+      ]
+    },
+    {
+      "id": "R09",
+      "paper": "attention",
+      "type": "cross-section",
+      "question": "What two decoder safeguards jointly ensure that a prediction at position i cannot depend on future outputs: one in the stack description and one inside attention?",
+      "page": 5,
+      "key_phrase": "masking out (setting to −∞)",
+      "alt_phrases": [
+        "illegal connections",
+        "predictions for position i can depend only on the known outputs at positions less than i"
+      ],
+      "source_pages": [
+        3,
+        5
+      ]
+    },
+    {
+      "id": "R10",
+      "paper": "attention",
+      "type": "fact",
+      "question": "How many warmup steps does the original Transformer optimizer schedule use?",
+      "page": 7,
+      "key_phrase": "warmup_steps = 4000"
+    },
+    {
+      "id": "R11",
+      "paper": "attention",
+      "type": "paraphrase",
+      "question": "Why did the authors prefer fixed sinusoidal position signals over learned position vectors?",
+      "page": 6,
+      "key_phrase": "extrapolate to sequence lengths longer than the ones encountered during training"
+    },
+    {
+      "id": "R12",
+      "paper": "attention",
+      "type": "table",
+      "question": "In Table 4, what F1 score does the four-layer Transformer obtain in the semi-supervised WSJ parsing setting?",
+      "page": 10,
+      "key_phrase": "92.7",
+      "alt_phrases": [
+        "Transformer (4 layers) semi-supervised"
+      ]
+    },
+    {
+      "id": "R13",
+      "paper": "moshi",
+      "type": "fact",
+      "question": "What theoretical latency does the abstract report for Moshi, and what practical latency does it report?",
+      "page": 1,
+      "key_phrase": "160ms, 200ms in practice"
+    },
+    {
+      "id": "R14",
+      "paper": "moshi",
+      "type": "fact",
+      "question": "How many parameters does Helium have, and how many tokens was it pretrained on?",
+      "page": 3,
+      "key_phrase": "7B-parameter text LLM that we pretrain on 2.1T tokens"
+    },
+    {
+      "id": "R15",
+      "paper": "moshi",
+      "type": "method",
+      "question": "What does Mimi distillation transfer into the causal codec tokens so encoding and decoding can be streamed?",
+      "page": 9,
+      "key_phrase": "allowing for streaming encoding and decoding of semantic-acoustic tokens"
+    },
+    {
+      "id": "R16",
+      "paper": "moshi",
+      "type": "table",
+      "question": "According to Table 1, what model dimension is used by Moshi’s Depth Transformer?",
+      "page": 8,
+      "key_phrase": "1024",
+      "alt_phrases": [
+        "Depth Transformer"
+      ]
+    },
+    {
+      "id": "R17",
+      "paper": "moshi",
+      "type": "table",
+      "question": "According to Table 1, what text-token batch size is used for Helium pretraining?",
+      "page": 8,
+      "key_phrase": "4.2M tok."
+    },
+    {
+      "id": "R18",
+      "paper": "moshi",
+      "type": "fact",
+      "question": "At what frame rate does Mimi represent a 24kHz waveform in its latent space?",
+      "page": 10,
+      "key_phrase": "12.5 frames per second"
+    },
+    {
+      "id": "R19",
+      "paper": "moshi",
+      "type": "exact-term",
+      "question": "What exact RVQ configuration does Mimi use in terms of quantizer count and codebook size?",
+      "page": 11,
+      "key_phrase": "Q = 8 quantizers, each with a codebook size of NA = 2048"
+    },
+    {
+      "id": "R20",
+      "paper": "moshi",
+      "type": "method",
+      "question": "How does the split-RVQ design avoid forcing acoustic detail to survive in the semantic quantizer’s residual?",
+      "page": 12,
+      "key_phrase": "remove the constraint that acoustic information should be conserved in the residual of the semantic quantizer"
+    },
+    {
+      "id": "R21",
+      "paper": "moshi",
+      "type": "method",
+      "question": "How does the RQ-Transformer divide temporal context modeling from within-timestep sub-sequence prediction?",
+      "page": 13,
+      "key_phrase": "a smaller Depth Transformer",
+      "alt_phrases": [
+        "Temporal Transformer"
+      ]
+    },
+    {
+      "id": "R22",
+      "paper": "moshi",
+      "type": "fact",
+      "question": "If all eight Mimi codebooks were flattened, how many autoregressive timesteps would be needed to model five minutes of audio?",
+      "page": 12,
+      "key_phrase": "30,000 timesteps"
+    },
+    {
+      "id": "R23",
+      "paper": "moshi",
+      "type": "method",
+      "question": "How do changing the text/audio delay and choosing which stream to teacher-force produce streaming ASR versus streaming TTS?",
+      "page": 16,
+      "key_phrase": "streaming Automatic Speech Recognition model",
+      "alt_phrases": [
+        "streaming Text-To-Speech model"
+      ]
+    },
+    {
+      "id": "R24",
+      "paper": "moshi",
+      "type": "table",
+      "question": "In Table 1, how many layers are listed for the Temporal Transformer?",
+      "page": 8,
+      "key_phrase": "Number of layers",
+      "alt_phrases": [
+        "32"
+      ]
+    },
+    {
+      "id": "R25",
+      "paper": "moshi",
+      "type": "cross-section",
+      "question": "When the multi-stream design and Inner Monologue are combined, how many parallel token streams are modeled in the experiments?",
+      "page": 17,
+      "key_phrase": "K = 2Q + 1 streams, with Q = 8 in the experiments",
+      "source_pages": [
+        12,
+        17
+      ]
+    },
+    {
+      "id": "R26",
+      "paper": "moshi",
+      "type": "paraphrase",
+      "question": "What resampling step is applied to the original Fisher phone-call recordings before they are used by Moshi?",
+      "page": 18,
+      "key_phrase": "upsample it to 24kHz"
+    },
+    {
+      "id": "R27",
+      "paper": "moshi",
+      "type": "exact-term",
+      "question": "Which specific GPU model family does the paper name for training all models?",
+      "page": 20,
+      "key_phrase": "All models are trained on H100 GPUs"
+    },
+    {
+      "id": "R28",
+      "paper": "moshi",
+      "type": "method",
+      "question": "When Moshi is listening but not speaking, what does its own audio stream decode to?",
+      "page": 17,
+      "key_phrase": "natural silence"
+    },
+    {
+      "id": "R29",
+      "paper": "dynchunk",
+      "type": "fact",
+      "question": "Approximately how many raw bytes does a learned H-Net chunk contain, according to the reported empirical compression?",
+      "page": 3,
+      "key_phrase": "4.5-5 bytes/chunk"
+    },
+    {
+      "id": "R30",
+      "paper": "dynchunk",
+      "type": "method",
+      "question": "What two learned modules make up Dynamic Chunking, and what does each contribute to segmentation or decompression?",
+      "page": 2,
+      "key_phrase": "routing module which predicts boundaries between adjacent elements through a similarity score",
+      "alt_phrases": [
+        "smoothing module which interpolates representations"
+      ]
+    },
+    {
+      "id": "R31",
+      "paper": "dynchunk",
+      "type": "fact",
+      "question": "At what boundary-probability threshold does the router set a boundary indicator to one?",
+      "page": 6,
+      "key_phrase": "𝑝𝑡≥0.5"
+    },
+    {
+      "id": "R32",
+      "paper": "dynchunk",
+      "type": "method",
+      "question": "Which encoder vectors does the downsampler retain when forming the compressed sequence?",
+      "page": 6,
+      "key_phrase": "vectors where 𝑏𝑡= 1 are retained"
+    },
+    {
+      "id": "R33",
+      "paper": "dynchunk",
+      "type": "method",
+      "question": "What smoothing operation does H-Net apply to interpolate representations across uncertain chunk boundaries?",
+      "page": 7,
+      "key_phrase": "exponential moving average (EMA)"
+    },
+    {
+      "id": "R34",
+      "paper": "dynchunk",
+      "type": "fact",
+      "question": "How many layers does the paper use in each encoder and decoder network?",
+      "page": 6,
+      "key_phrase": "four layers (or the equivalent of four Mamba layers) in each encoder/decoder network"
+    },
+    {
+      "id": "R35",
+      "paper": "dynchunk",
+      "type": "table",
+      "question": "In Table 1, under the '#FLOPs matched to GPT-3 Large' section, how many parameters does H-Net (1-stage) have?",
+      "page": 11,
+      "key_phrase": "680M",
+      "alt_phrases": [
+        "H-Net (1-stage)"
+      ]
+    },
+    {
+      "id": "R36",
+      "paper": "dynchunk",
+      "type": "table",
+      "question": "In Table 1, under the '#FLOPs matched to GPT-3 Large' section, what BPIC value does H-Net (2-stage) have?",
+      "page": 11,
+      "key_phrase": "7.0",
+      "alt_phrases": [
+        "H-Net (2-stage)"
+      ]
+    },
+    {
+      "id": "R37",
+      "paper": "dynchunk",
+      "type": "cross-section",
+      "question": "How does an H-Net encoder serve both the decoder’s fine-grained reconstruction and the main network’s compressed processing?",
+      "page": 5,
+      "key_phrase": "preserve fine-grained information for transmission to its corresponding decoder through residual connections",
+      "alt_phrases": [
+        "compress inputs into chunks of richer representations for the main network"
+      ]
+    },
+    {
+      "id": "R38",
+      "paper": "dynchunk",
+      "type": "paraphrase",
+      "question": "After how much byte-level training data did the two-stage H-Net first surpass the strong tokenized Transformer in perplexity?",
+      "page": 4,
+      "key_phrase": "after just 30B training bytes"
+    },
+    {
+      "id": "R39",
+      "paper": "dynchunk",
+      "type": "paraphrase",
+      "question": "What data-efficiency improvement does the paper report for DNA sequence modeling compared with isotropic baselines?",
+      "page": 4,
+      "key_phrase": "3.6× improved data efficiency compared to isotropic models"
+    },
+    {
+      "id": "R40",
+      "paper": "dynchunk",
+      "type": "exact-term",
+      "question": "Which named state-space layer type is used as the primary building block for H-Net encoder and decoder networks?",
+      "page": 5,
+      "key_phrase": "Mamba-2 layers"
+    }
+  ],
+  "answer_questions": [
+    {
+      "id": "A01",
+      "expected": "answer",
+      "subtype": "answerable",
+      "paper": "attention",
+      "question": "Why do the authors divide query-key dot products by the square root of the key dimension before applying softmax?",
+      "reference_answer": "For large key dimensions, unscaled dot products can become large and push softmax into regions with extremely small gradients; scaling counteracts that effect.",
+      "must_include": [
+        "large",
+        "softmax",
+        "gradients"
+      ],
+      "evidence_page": 4,
+      "evidence_phrase": "pushing the softmax function into regions where it has extremely small gradients"
+    },
+    {
+      "id": "A02",
+      "expected": "answer",
+      "subtype": "answerable",
+      "paper": "attention",
+      "question": "How many warmup steps did the original Transformer use in its learning-rate schedule?",
+      "reference_answer": "The Transformer used 4,000 warmup steps.",
+      "must_include": [
+        "4000"
+      ],
+      "evidence_page": 7,
+      "evidence_phrase": "warmup_steps = 4000"
+    },
+    {
+      "id": "A03",
+      "expected": "answer",
+      "subtype": "answerable",
+      "paper": "moshi",
+      "question": "In Inner Monologue, what does Moshi predict before the corresponding audio tokens?",
+      "reference_answer": "It predicts time-aligned text tokens as a prefix to the audio tokens.",
+      "must_include": [
+        "time-aligned text tokens",
+        "audio tokens"
+      ],
+      "evidence_page": 3,
+      "evidence_phrase": "predicting time-aligned text tokens"
+    },
+    {
+      "id": "A04",
+      "expected": "answer",
+      "subtype": "answerable",
+      "paper": "moshi",
+      "question": "How many hours of phone conversations are in the Fisher dataset used for multi-stream training?",
+      "reference_answer": "The Fisher dataset contains 2,000 hours of phone conversations.",
+      "must_include": [
+        "2000"
+      ],
+      "evidence_page": 18,
+      "evidence_phrase": "2000 hours of phone conversations"
+    },
+    {
+      "id": "A05",
+      "expected": "answer",
+      "subtype": "answerable",
+      "paper": "moshi",
+      "question": "What context length does the Helium text language model use?",
+      "reference_answer": "Helium uses a context length of 4,096 tokens.",
+      "must_include": [
+        "4096"
+      ],
+      "evidence_page": 7,
+      "evidence_phrase": "context length of 4,096 tokens"
+    },
+    {
+      "id": "A06",
+      "expected": "answer",
+      "subtype": "answerable",
+      "paper": "dynchunk",
+      "question": "What signal does the H-Net routing module use to estimate boundaries between adjacent representations?",
+      "reference_answer": "It uses cosine similarity between adjacent encoder outputs; lower similarity indicates a likely boundary.",
+      "must_include": [
+        "cosine similarity",
+        "adjacent encoder outputs"
+      ],
+      "evidence_page": 6,
+      "evidence_phrase": "cosine similarity between adjacent encoder outputs"
+    },
+    {
+      "id": "A07",
+      "expected": "answer",
+      "subtype": "answerable",
+      "paper": "dynchunk",
+      "question": "What did the two-stage byte-level H-Net surpass after 30B training bytes?",
+      "reference_answer": "It surpassed the perplexity of a strong tokenized Transformer.",
+      "must_include": [
+        "perplexity",
+        "tokenized Transformer"
+      ],
+      "evidence_page": 4,
+      "evidence_phrase": "overtakes the perplexity of a strong tokenized Transformer after just 30B training bytes"
+    },
+    {
+      "id": "A08",
+      "expected": "refuse",
+      "subtype": "off-topic",
+      "paper": "all",
+      "question": "What is the capital of France?",
+      "why_unanswerable": "Cross-checked all three PDFs for 'capital of France', 'France', and 'Paris'. Paris occurs in unrelated benchmark/citation contexts, but none of the papers states or answers the country-capital fact."
+    },
+    {
+      "id": "A09",
+      "expected": "refuse",
+      "subtype": "off-topic",
+      "paper": "all",
+      "question": "What is the current temperature in London?",
+      "why_unanswerable": "Cross-checked all three PDFs for 'current temperature', 'London', 'weather', and 'temperature in London'; no weather or live-temperature information is present."
+    },
+    {
+      "id": "A10",
+      "expected": "refuse",
+      "subtype": "off-topic",
+      "paper": "all",
+      "question": "How do I make a sourdough starter from scratch?",
+      "why_unanswerable": "Cross-checked all three PDFs for 'sourdough', 'starter', 'bread recipe', and 'baking bread'; none discusses cooking or bread preparation."
+    },
+    {
+      "id": "A11",
+      "expected": "refuse",
+      "subtype": "off-topic",
+      "paper": "all",
+      "question": "Who won the men’s 100-metre final at the 2024 Summer Olympics?",
+      "why_unanswerable": "Cross-checked all three PDFs for 'Olympic', '100 metres', '100-meter', and 'Noah Lyles'; none contains Olympic athletics results."
+    },
+    {
+      "id": "A12",
+      "expected": "refuse",
+      "subtype": "off-topic",
+      "paper": "all",
+      "question": "What are the steps to replace a bicycle chain?",
+      "why_unanswerable": "Cross-checked all three PDFs for 'bicycle chain', 'bike chain', and 'replace a bicycle'; none contains bicycle-maintenance instructions."
+    },
+    {
+      "id": "A13",
+      "expected": "refuse",
+      "subtype": "near-miss",
+      "paper": "attention",
+      "question": "What exact numeric learning rate did the authors use for the WSJ-only English constituency-parsing experiment?",
+      "why_unanswerable": "Cross-checked all three PDFs for 'learning rate', 'learning rates', 'WSJ', 'constituency parsing', and 'fine-tuning'. Attention Is All You Need (PDF p.10) says learning rates were among the few parser hyperparameters selected on the development set, but gives no numeric value specific to the WSJ-only parsing run.",
+      "near_miss_page": 10
+    },
+    {
+      "id": "A14",
+      "expected": "refuse",
+      "subtype": "near-miss",
+      "paper": "attention",
+      "question": "What batch size, measured in sentence pairs, was used for the WSJ-only constituency-parsing experiment?",
+      "why_unanswerable": "Cross-checked all three PDFs for 'batch size', 'batching', 'WSJ', 'constituency parsing', and 'sentence pairs'. The Attention paper gives a token-based batch size for machine translation on PDF p.7, but does not state a batch size for the WSJ parsing experiment on PDF p.10.",
+      "near_miss_page": 10
+    },
+    {
+      "id": "A15",
+      "expected": "refuse",
+      "subtype": "near-miss",
+      "paper": "moshi",
+      "question": "How many H100 GPUs were used for Helium pretraining?",
+      "why_unanswerable": "Cross-checked all three PDFs for 'H100', 'GPU', 'number of GPUs', and 'Helium pre-training'. Moshi (PDF p.20) says all models were trained on H100 GPUs, but does not report the number of GPUs; GPU counts elsewhere in the corpus refer to the separate Transformer paper.",
+      "near_miss_page": 20
+    },
+    {
+      "id": "A16",
+      "expected": "refuse",
+      "subtype": "near-miss",
+      "paper": "moshi",
+      "question": "How many trainable parameters does Moshi’s Depth Transformer contain?",
+      "why_unanswerable": "Cross-checked all three PDFs for 'Depth Transformer', 'parameter count', 'number of parameters', and 'parameters'. Moshi describes its Depth Transformer’s dimension, layer count, and attention-head count (PDF pp.8 and 14), but does not state its standalone parameter total.",
+      "near_miss_page": 14
+    },
+    {
+      "id": "A17",
+      "expected": "refuse",
+      "subtype": "near-miss",
+      "paper": "dynchunk",
+      "question": "How many GPUs were used to train the H-Net experiments reported in Table 1?",
+      "why_unanswerable": "Cross-checked all three PDFs for 'GPU', 'A100', 'H100', 'TPU', 'accelerator', and 'H-Net training'. Dynamic Chunking (PDF p.11) reports model architectures, parameter counts, and FLOP-matched comparisons, but the paper contains no GPU hardware or GPU-count statement.",
+      "near_miss_page": 11
+    }
+  ]
+}
