@@ -48,3 +48,43 @@ The one-time Phase 1 probe is paid from the spare 10% and capped at **20K tokens
 2. Does `max_tokens` count toward TPM?
 3. How many reasoning tokens do gpt-oss models use at the lowest reasoning effort?
 4. What are the exact 429 body and headers?
+
+## 2026-11-14 — Phase 1.1 probe findings (results/probe_log.jsonl, 30 calls, all 200, 9,690 tokens)
+
+Setup: sequential, 8 s pause, round-robin across models, `max_completion_tokens=300`, temperature 0,
+`reasoning_effort` low (gpt-oss) / none (qwen). Per model: 8 short, 1 medium (~690 tok), 1 large (~1,630 tok).
+n=10 per model → medians and max only; no percentiles claimed.
+
+| Model | Total ms median / max | Groq queue_time median | Server total_time median | Template overhead (short prompt tokens) |
+|---|---|---|---|---|
+| gpt-oss-120b | 376 / 663 | 159 ms | 102 ms | ~60 (80–84 tok for a ~20-tok question) |
+| gpt-oss-20b | 528 / 698 | 341 ms | 62 ms | ~60 (80–84) |
+| qwen3.8-27b | 252 / 673 | 50 ms | 65 ms | ~2 (21–25) |
+
+First chunk / first content (ms): short = median (max) over 8; medium, large = single call.
+
+| Model | Short | Medium | Large | Reasoning tokens S / M / L |
+|---|---|---|---|---|
+| gpt-oss-120b | 337 / 337 (628) | 306 / 307 | 568 / 608 | 5–8 / 6 / 15 |
+| gpt-oss-20b | 485 / 490 (689) | 523 / 524 | 506 / 506 | 5–6 / 23 / 15 |
+| qwen3.8-27b | 197 / 197 (635) | 241 / 241 | 384 / 384 | none (field absent) |
+
+- Q3 (reasoning at lowest effort): 5–23 tokens; delays first content by 0–40 ms. Negligible.
+- Latency is dominated by Groq-side queueing, not generation (20b: queue 341 ms vs 62 ms work). Hypothesis from one session.
+- Short answers: first token ≈ total (within 20–150 ms).
+- Q1 (separate pools): **RPD separate per model — high confidence** (each model's remaining-requests fell only by its
+  own calls: 999, 999, 998 … 991). **TPM separate per model — medium confidence** (large-prompt round: 20b's header
+  showed only its own 1,687 tokens 8.5 s after 120b's 1,685-token call; a shared bucket would show ~2,200).
+  TPM refills linearly at 8000/60 = 133.3 tok/s (`reset-tokens` = charged / 133.3).
+- Q2 (max_tokens vs TPM), **corrected**: Groq reserves prompt + max_completion_tokens at admission and settles to actual
+  usage on completion. Header snapshot showed the reservation in 10/30 calls and ≈ actual usage in 20/30.
+  **Medium confidence** (inferred from header timing, undocumented). Consequence: max_tokens does not change daily cost
+  but limits in-flight capacity during bursts → tight max_tokens per step; local limiter reserves max_tokens, refunds on completion.
+
+## 2026-11-14 — Locked model pair
+
+| Role | Model | Reason |
+|---|---|---|
+| Generator | openai/gpt-oss-120b | Strongest production model available; reasoning overhead at `low` measured negligible |
+| Judge | openai/gpt-oss-20b | Separate quota pool (Q1) so judging doesn't compete with generation; cheapest; short verdicts. Watch: highest queue time in probe |
+| Fallback | qwen/qwen3.8-27b | Lowest latency and ~60 fewer tokens/call; third pool. Risk: preview status, highest price |
