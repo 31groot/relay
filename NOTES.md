@@ -123,3 +123,16 @@ A retrieved chunk is a **hit** for a retrieval question only if all three hold:
 
 Why: short numeric key phrases recur elsewhere (R16 `1024` on 9 library pages, R36 `7.0` on 6), so a
 phrase-only rule would over-count hits. Questions with `source_pages`: stated `page` is the gold page.
+
+## 2026-11-14 — Embedding model files (Phase 2.3b)
+
+BAAI/bge-small-en-v1.5 at pinned revision `5c38ec7c405ec4b44b94cc5a9bb96e735b38267a`, saved to
+`data/models/bge-small-en-v1.5/` (gitignored). Config: 384 dims, 512-token window, CLS pooling + normalize.
+
+| File | Source path | Bytes | SHA-256 | Independent check |
+|---|---|---|---|---|
+| model.onnx | `onnx/model.onnx` | 133,093,490 | `828e1496d7fabb79cfa4dcd84fa38625c0d3d21da474a00f08db0f559940cf35` | = HF lfs.oid |
+| tokenizer.json | `tokenizer.json` | 711,396 | `d241a60d5e8f04cc1b2b3e9ef7a4921b27bf526d9f6050ab90f9267a1f9e5c66` | git blob = HF oid `688882a7…` |
+
+Runtime: onnxruntime 1.32.0, tokenizers 0.23.3, numpy 2.5.4 (pinned in requirements.txt). Installing them also
+pulled transitive deps (huggingface-hub, hf-xet, fsspec, protobuf, …) — not used directly.

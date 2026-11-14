@@ -118,3 +118,6 @@ Changes to this file need an explicit decision + reason in the changelog at the 
 - 2026-11-14: chunking (Phase 2.3a) at 200/400/800 generator tokens (4.4 chars/token, measured), 15% overlap,
   never across papers or removed-reference gaps. Known gaps: DC's top-level "§2" heading is not detected (text
   before §2.1 is labelled "1 Introduction"); the last chunk before each gap is short (5–6 per size).
+- 2026-11-14: embeddings (Phase 2.3b): bge-small-en-v1.5 via onnxruntime, CLS pooling + normalize; chunks over the
+  512-token window split into equal pieces, averaged, renormalized; query instruction on queries only.
+  Known gap: DC has letter-spaced words ("p r o d u c t", "n e w") from extraction; not cleaned.
