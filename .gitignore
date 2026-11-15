@@ -17,3 +17,4 @@ data/index/*
 !data/index/embeddings_ids.json
 # downloaded model weights (fetched by pinned URL, SHA-256 in NOTES.md)
 data/models/
+convo_history.txt
