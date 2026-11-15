@@ -367,3 +367,40 @@ measured honestly.
 - Quality cost (Phase 3, zero tokens): hybrid R@4 27/40 vs R@8 34/40 (−17.5 pts); BM25 R@4 31/40 (−7.5 pts).
 - Overload offered 9.2/min ≈ 3× capacity: +44% does not close the gap; the fallback ladder already serves every shed
   request but one. If a rung is ever added, use BM25 top-4, not hybrid top-4.
+
+## 2026-11-15 — Decisions, retry comparison, steady run ready
+
+**"Fewer chunks" rung: NOT added (user decision, FINAL).** Numbers: recall within budget at 200-token chunks, hybrid
+34/40 → 27/40 at top-4 (BM25 34/40 → 31/40); 120b capacity ≈ 3.05 → 4.40 generations/min (+44%) at top-4. Overload
+arrived at ~3× capacity, so +44% would not close it; the fallback ladder already serves the overflow.
+
+**Every rate is reported two ways** (`exp/make_tables.py`): *full answer* = the pipeline's own outcome reached the user
+(judged answer, cached copy of one, or gate / NOT_IN_PAPERS refusal); *served* = full answer or the zero-token extractive
+fallback.
+
+**Retry comparison (stand-in, same seeded arrivals and questions; `results/tables.md`):** naive retrying (every 429 again
+immediately, no limiter, no backoff) made things WORSE.
+- burst: given up 29/63 (46.0%) vs 0/63; served 54.0% vs 100.0%; 126 retries vs 0.
+- overload: given up 74/133 (55.6%) vs 1/133; served 44.4% vs 99.2%; 1,719 retries vs 0; total p50 20,016 vs 6,393 ms.
+- Measured wasted tokens are small (2,570 / 5,101): most naive retries were 429s, which cost nothing. The harm is users
+  lost to waiting, not tokens. Calls cancelled mid-flight are counted (29 / 74), not given a token estimate.
+- Naive runs vary slightly between runs (timing); the committed CSV is the reference.
+
+**Steady run ready (`exp/run_steady_real.py`), NOT yet run on Groq:** 16 requests at 1.5/min (seeded Poisson), default
+setting, guard 50K per model from its own log, resume, stop on 401/403/429 (no retries), key and org IDs redacted.
+Dry runs on the stand-in (zero tokens): full run 16/16 ok, 120b 33,289 / 20b 7,254 tokens; interrupted after 6 then
+resumed → 16 unique, identical totals; cap 6,000 → stopped at 5,080 before a 2,999-token call. The full dry run is the
+stand-in's prediction for the same 16 arrivals (`results/steady_standin_prediction_log.jsonl`, scenario `steady16`):
+p50 1,603 ms, p95 4,705 ms. Known limit: a call already in flight when a 429 arrives still completes (cannot be
+un-sent); no call starts after the stop. Bug fixed before any real call: dry-run start_time used wall time (×20 too
+short); now simulated time.
+
+### NOT measured on real Groq (stand-in assumptions)
+1. Slowdown under load: latency × (1 + 0.05 × (in-flight − 1)) — invented; we never sent concurrent real calls.
+2. User patience: 20 s, then the user gives up (request cancelled).
+3. Time compression ×20 in stand-in runs; local Python overhead is not compressed (inflated ×20 in simulated time).
+4. Question mix: Zipf popularity (weights 1, 1/2, 1/3, …) over the 17 answer questions, seeded.
+5. Admission rule: prompt + max_tokens reserved at admission, capped at the bucket (Q2, medium-low confidence).
+6. Rejected 429 attempts do not count toward RPM in the stand-in (unknown for Groq).
+7. Failures: 5xx and slow-success rates set to 0 (none seen in 131 real calls; capability exists, not exercised).
+8. Content: replayed real answers; only the 17 answer questions; the replay cannot show new model behaviour under load.

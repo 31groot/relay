@@ -1,7 +1,7 @@
 """Merge every request (real + stand-in) into results/results.csv — the file all tables are computed from.
 
 Mandatory columns (brief): request_id, scenario, source, start_time, first_token_ms, total_ms, status, retries,
-tokens_in, tokens_out, retrieval_setting, answer_grade.  Extra: qid, served, outcome_reason, queue_len_at_start, cost_usd.
+tokens_in, tokens_out, retrieval_setting, answer_grade.  Extra: qid, served, outcome_reason, queue_len_at_start, cost_usd, client, wasted_tokens, cancelled_calls.
 Real sources: probe (32 single calls), Phase 4 smoke (2 runs), Phase 5 quality runs (3 settings × 17).
 Stand-in source: results/load_runs.jsonl (exp/loadgen.py). Answers are buffered → first_token_ms = total_ms for requests.
 """
@@ -15,7 +15,8 @@ sys.path[:0] = [str(ROOT / "exp")]
 import table3  # noqa: E402
 
 COLS = ["request_id", "scenario", "source", "start_time", "first_token_ms", "total_ms", "status", "retries", "tokens_in",
-        "tokens_out", "retrieval_setting", "answer_grade", "qid", "served", "outcome_reason", "queue_len_at_start", "cost_usd"]
+        "tokens_out", "retrieval_setting", "answer_grade", "qid", "served", "outcome_reason", "queue_len_at_start", "cost_usd",
+        "client", "wasted_tokens", "cancelled_calls"]
 PRICES = {"openai/gpt-oss-120b": (0.15, 0.60), "openai/gpt-oss-20b": (0.075, 0.30), "qwen/qwen3.8-27b": (0.80, 4.00)}
 
 
@@ -81,6 +82,28 @@ def quality_rows():
                "outcome_reason": a["outcome_reason"], "queue_len_at_start": "", "cost_usd": cost(cs)}
 
 
+def steady_rows(path, scenario, source):
+    """exp/run_steady_real.py logs → one row per finished request (budget-refused requests are not finished)."""
+    if not path.exists():
+        return
+    rows = [json.loads(line) for line in path.read_text().splitlines()]
+    calls = {}
+    for r in rows:
+        if r["type"] == "call":
+            calls.setdefault(r["request_id"], []).append(r)
+    for r in rows:
+        if r["type"] != "request" or r["status"] == "budget":
+            continue
+        cs = calls.get(r["request_id"], [])
+        yield {"request_id": f"{scenario}-{r['request_id']}", "scenario": scenario, "source": source, "start_time": r["start_time"],
+               "first_token_ms": r["first_token_ms"], "total_ms": r["total_ms"], "status": r["status"], "retries": 0,
+               "tokens_in": sum((c.get("usage") or {}).get("prompt_tokens", 0) for c in cs),
+               "tokens_out": sum((c.get("usage") or {}).get("completion_tokens", 0) for c in cs),
+               "retrieval_setting": table3.SETTINGS["default"], "answer_grade": r["answer_grade"], "qid": r["qid"],
+               "served": r["served"], "outcome_reason": r["outcome_reason"], "queue_len_at_start": "", "cost_usd": cost(cs),
+               "client": "limiter, no retries (stop on 401/403/429)", "wasted_tokens": "", "cancelled_calls": ""}
+
+
 def load_rows():
     path = ROOT / "results" / "load_runs.jsonl"
     for r in map(json.loads, path.read_text().splitlines()) if path.exists() else []:
@@ -88,7 +111,9 @@ def load_rows():
 
 
 def main():
-    rows = list(probe_rows()) + list(smoke_rows()) + list(quality_rows()) + list(load_rows())
+    rows = list(probe_rows()) + list(smoke_rows()) + list(quality_rows()) + list(load_rows()) \
+        + list(steady_rows(ROOT / "results" / "steady_standin_prediction_log.jsonl", "steady16", "stand-in")) \
+        + list(steady_rows(ROOT / "results" / "steady_real_log.jsonl", "steady16", "real"))
     ids = [r["request_id"] for r in rows]
     assert len(ids) == len(set(ids)), "duplicate request_id"
     with (ROOT / "results" / "results.csv").open("w", newline="") as f:

@@ -24,6 +24,7 @@ import httpx
 ROOT = Path(__file__).resolve().parent.parent
 sys.path[:0] = [str(ROOT / "app"), str(ROOT / "exp")]
 import aclient  # noqa: E402
+import llm  # noqa: E402
 import limiter as lim  # noqa: E402
 import pipeline as pl  # noqa: E402
 import prompts  # noqa: E402
@@ -40,6 +41,9 @@ SCENARIOS = {
     "steady":          {"segments": [(0, 30, 2.0)], "standin": []},
     "burst":           {"segments": [(0, 20, 1.0)], "bursts": [(5.0, 40)], "standin": []},
     "overload":        {"segments": [(0, 15, 8.0)], "standin": []},
+    # retry comparison: SAME arrivals and question sequence (same seed) as burst/overload, naive client
+    "burst_naive":     {"segments": [(0, 20, 1.0)], "bursts": [(5.0, 40)], "standin": [], "client": "naive"},
+    "overload_naive":  {"segments": [(0, 15, 8.0)], "standin": [], "client": "naive"},
     "tpm_halved":      {"segments": [(0, 30, 2.0)], "standin": ["--tpm", "4000"]},
     "daily_exhausted": {"segments": [(0, 15, 2.0)], "standin": ["--tpd-remaining", "6000"]},
 }
@@ -100,14 +104,35 @@ async def run_scenario(name, cfg, url, prepared, questions, real, rng):
         row = {"request_id": f"{name}-{i:04d}", "scenario": name, "source": "stand-in", "qid": qid,
                "start_time": (wall0 + timedelta(seconds=start - sim0)).isoformat(), "retries": 0, "tokens_in": 0,
                "tokens_out": 0, "cost_usd": 0.0, "retrieval_setting": RETRIEVAL, "queue_len_at_start": limiter.waiters(),
-               "served": "", "outcome_reason": "", "first_token_ms": None, "total_ms": None}
+               "served": "", "outcome_reason": "", "first_token_ms": None, "total_ms": None, "cancelled_calls": 0,
+               "client": cfg.get("client", "limiter")}
         deadline = start + PATIENCE_S
         rows_seen = []
 
+        async def naive_call(model, messages, max_tokens):
+            """Naive client: no limiter, no backoff, no retry budget — retry every per-minute 429 immediately."""
+            n = 0
+            while True:
+                try:
+                    r = await llm.achat(client, "stand-in-key", model, messages, max_tokens, url=url)
+                except asyncio.CancelledError:   # user gave up mid-call (often a 429 attempt, which costs nothing)
+                    row["cancelled_calls"] += 1
+                    raise
+                if r["http_status"] != 429 or aclient.is_daily(r):
+                    return r, n
+                n += 1
+
         async def acall(step, model, messages, max_tokens):
             prio = 1 if step == "generate#1" else 0           # in-progress work before new work
-            r, n = await aclient.call(client, "stand-in-key", url, limiter, budget, model, messages, max_tokens,
-                                      pl.worst_case(messages, max_tokens), deadline=deadline, priority=prio, rng=rng)
+            if cfg.get("client") == "naive":
+                r, n = await naive_call(model, messages, max_tokens)
+            else:
+                try:
+                    r, n = await aclient.call(client, "stand-in-key", url, limiter, budget, model, messages, max_tokens,
+                                              pl.worst_case(messages, max_tokens), deadline=deadline, priority=prio, rng=rng)
+                except asyncio.CancelledError:
+                    row["cancelled_calls"] += 1
+                    raise
             row["retries"] += n
             u = r.get("usage") or {}
             row["tokens_in"] += u.get("prompt_tokens", 0)
@@ -150,6 +175,10 @@ async def run_scenario(name, cfg, url, prepared, questions, real, rng):
                        first_token_ms=None, total_ms=round((clock.now() - start) * 1000, 1),
                        answer_grade=grade_of(qid, None, False, real, q["expected"]))
         finally:
+            # wasted = MEASURED tokens (completed calls' usage) spent on a request that ended without its own outcome
+            # (degraded, given up, error). Calls cancelled mid-flight are counted, not estimated (usage unknown).
+            own_outcome = row.get("status") == "ok" or row.get("served") == "cache"
+            row["wasted_tokens"] = 0 if own_outcome else row["tokens_in"] + row["tokens_out"]
             rows.append(row)
 
     times = arrivals(cfg, rng)
