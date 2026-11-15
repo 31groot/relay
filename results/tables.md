@@ -1,7 +1,7 @@
 ## Table 2a: Latency
 | Scenario | Real or stand-in | Requests sent | Duration (s) | Offered rate (per min) | First token p50 / p95 / p99 (ms) | Total time p50 / p95 / p99 (ms) |
 |---|---|---|---|---|---|---|
-| steady16 | real | not measured | not measured | not measured | not measured | not measured |
+| steady16 | real | 16 | 502 | 1.9 | 1020 / 2815 / 2815 (n=14) | 1020 / 2815 / 2815 (n=14) |
 | steady16 | stand-in | 16 | 502 | 1.9 | 1603 / 4705 / 4705 (n=16) | 1603 / 4705 / 4705 (n=16) |
 | steady | stand-in | 63 | 1728 | 2.2 | 1804 / 5303 / 16679 (n=63) | 1804 / 5303 / 16679 (n=63) |
 | burst | stand-in | 63 | 1192 | 3.2 | 2600 / 15551 / 19474 (n=63) | 2600 / 15551 / 19474 (n=63) |
@@ -19,7 +19,7 @@
 ## Table 2b: Outcomes
 | Scenario | Succeeded % (served / full answer) | Rate-limited % (status / without a full answer) | Timed out or given up % | Retries per request | Peak queue length | Tokens per answer | Cost per 1,000 answers (served / full answer) |
 |---|---|---|---|---|---|---|---|
-| steady16 | not measured | not measured | not measured | not measured | not measured | not measured | not measured |
+| steady16 | 87.5 / 87.5 | 0.0 / 0.0 | 0.0 | 0.00 | not measured | 2981 | $0.36 / $0.36 |
 | steady16 | 100.0 / 100.0 | 0.0 / 0.0 | 0.0 | 0.00 | not measured | 3119 | $0.38 / $0.38 |
 | steady | 100.0 / 100.0 | 0.0 / 0.0 | 0.0 | 0.00 | 0 | 3288 | $0.41 / $0.41 |
 | burst | 100.0 / 84.1 | 44.4 / 15.9 | 0.0 | 0.00 | 15 | 3387 | $0.20 / $0.23 |
@@ -54,4 +54,4 @@
 
 Definitions: full answer = the pipeline's own outcome reached the user (judged answer, cached copy of one, or a gate/NOT_IN_PAPERS refusal); served = full answer or the zero-token extractive fallback. Wasted tokens = measured usage on requests that ended without their own outcome; calls cancelled mid-flight are counted, not estimated.
 
-Notes: stand-in times are simulated (time compressed ×20, converted back). Real quality-run times include TPM pacing waits (runs were back-to-back); gate refusals make no model call and are not timed. Refused-wrongly % = 100 − correct − wrong − correctly refused. Percentiles are nearest-rank; with n < 100, p99 is the slowest request.
+Notes: stand-in times are simulated (time compressed ×20, converted back). Real quality-run times include TPM pacing waits (runs were back-to-back); gate refusals make no model call and are not timed. Latency percentiles exclude status=error rows (the real steady run had 2 local connection failures, ~4 ms each); outcome rates include them. Refused-wrongly % = 100 − correct − wrong − correctly refused. Percentiles are nearest-rank; with n < 100, p99 is the slowest request.

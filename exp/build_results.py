@@ -95,7 +95,7 @@ def steady_rows(path, scenario, source):
         if r["type"] != "request" or r["status"] == "budget":
             continue
         cs = calls.get(r["request_id"], [])
-        yield {"request_id": f"{scenario}-{r['request_id']}", "scenario": scenario, "source": source, "start_time": r["start_time"],
+        yield {"request_id": f"{scenario}-{source}-{r['request_id']}", "scenario": scenario, "source": source, "start_time": r["start_time"],
                "first_token_ms": r["first_token_ms"], "total_ms": r["total_ms"], "status": r["status"], "retries": 0,
                "tokens_in": sum((c.get("usage") or {}).get("prompt_tokens", 0) for c in cs),
                "tokens_out": sum((c.get("usage") or {}).get("completion_tokens", 0) for c in cs),

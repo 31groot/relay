@@ -37,7 +37,7 @@ real calls) and how Groq charges a call while it is in flight (medium-low confid
 ## Table 2a: Latency
 | Scenario | Real or stand-in | Requests sent | Duration (s) | Offered rate (per min) | First token p50 / p95 / p99 (ms) | Total time p50 / p95 / p99 (ms) |
 |---|---|---|---|---|---|---|
-| steady16 | real | not measured | not measured | not measured | not measured | not measured |
+| steady16 | real | 16 | 502 | 1.9 | 1020 / 2815 / 2815 (n=14) | 1020 / 2815 / 2815 (n=14) |
 | steady16 | stand-in | 16 | 502 | 1.9 | 1603 / 4705 / 4705 (n=16) | 1603 / 4705 / 4705 (n=16) |
 | steady | stand-in | 63 | 1728 | 2.2 | 1804 / 5303 / 16679 (n=63) | 1804 / 5303 / 16679 (n=63) |
 | burst | stand-in | 63 | 1192 | 3.2 | 2600 / 15551 / 19474 (n=63) | 2600 / 15551 / 19474 (n=63) |
@@ -55,7 +55,7 @@ real calls) and how Groq charges a call while it is in flight (medium-low confid
 ## Table 2b: Outcomes
 | Scenario | Succeeded % (served / full answer) | Rate-limited % (status / without a full answer) | Timed out or given up % | Retries per request | Peak queue length | Tokens per answer | Cost per 1,000 answers (served / full answer) |
 |---|---|---|---|---|---|---|---|
-| steady16 | not measured | not measured | not measured | not measured | not measured | not measured | not measured |
+| steady16 | 87.5 / 87.5 | 0.0 / 0.0 | 0.0 | 0.00 | not measured | 2981 | $0.36 / $0.36 |
 | steady16 | 100.0 / 100.0 | 0.0 / 0.0 | 0.0 | 0.00 | not measured | 3119 | $0.38 / $0.38 |
 | steady | 100.0 / 100.0 | 0.0 / 0.0 | 0.0 | 0.00 | 0 | 3288 | $0.41 / $0.41 |
 | burst | 100.0 / 84.1 | 44.4 / 15.9 | 0.0 | 0.00 | 15 | 3387 | $0.20 / $0.23 |
@@ -90,10 +90,10 @@ real calls) and how Groq charges a call while it is in flight (medium-low confid
 
 Definitions: full answer = the pipeline's own outcome reached the user (judged answer, cached copy of one, or a gate/NOT_IN_PAPERS refusal); served = full answer or the zero-token extractive fallback. Wasted tokens = measured usage on requests that ended without their own outcome; calls cancelled mid-flight are counted, not estimated.
 
-Notes: stand-in times are simulated (time compressed ×20, converted back). Real quality-run times include TPM pacing waits (runs were back-to-back); gate refusals make no model call and are not timed. Refused-wrongly % = 100 − correct − wrong − correctly refused. Percentiles are nearest-rank; with n < 100, p99 is the slowest request.
+Notes: stand-in times are simulated (time compressed ×20, converted back). Real quality-run times include TPM pacing waits (runs were back-to-back); gate refusals make no model call and are not timed. Latency percentiles exclude status=error rows (the real steady run had 2 local connection failures, ~4 ms each); outcome rates include them. Refused-wrongly % = 100 − correct − wrong − correctly refused. Percentiles are nearest-rank; with n < 100, p99 is the slowest request.
 <!-- END GENERATED TABLES -->
 
-**Real steady run:** PENDING. **A number we could not have guessed:** the fastest model on paper (gpt-oss-20b) was the
+**Real steady run** (16 requests at 1.5/min on real Groq, `results/steady_real_log.jsonl`): 14 of 16 completed — 7 judged answers (all auto-graded correct; not yet reviewed by me) and 7 correct refusals (3 at the gate, 4 NOT_IN_PAPERS). 2 failed with a local connection error before reaching Groq (no retry, by design). Tokens: 120b 26,547, 20b 6,247; total time p50 1,020 ms, p95 2,815 ms (n=14). **Where it differs from the stand-in:** on the same 14 requests, outcomes and grades were identical and tokens within 6% (120b 26,547 vs 28,200), but the stand-in was pessimistic on latency — for requests that called a model, p50 1,273 vs 1,992 ms and p95 2,815 vs 4,705 ms — likely because it resamples from all 131 earlier calls, including slower ones (not verified). **A number we could not have guessed:** the fastest model on paper (gpt-oss-20b) was the
 slowest end-to-end in the probe — Groq queue time (median 341 ms) was over five times its generation time (62 ms).
 Answer quality: 17 questions per setting, graded by me after an automatic first pass (`results/grade_overrides.jsonl`);
 tokens per answer are in Table 3.

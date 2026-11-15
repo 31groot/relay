@@ -75,8 +75,9 @@ def table2(rows):
         ts = sorted(datetime.fromisoformat(r["start_time"]) for r in rs if r["start_time"])
         dur = (ts[-1] - ts[0]).total_seconds() if len(ts) > 1 else 0
         rate = f"{len(rs) / (dur / 60):.1f}" if dur else "–"
-        a.append(f"| {sc} | {src} | {len(rs)} | {dur:.0f} | {rate} | {fmt3([num(r['first_token_ms']) for r in rs])} | "
-                 f"{fmt3([num(r['total_ms']) for r in rs])} |")
+        timed = [r for r in rs if r["status"] != "error"]   # a failed connection is not a fast response
+        a.append(f"| {sc} | {src} | {len(rs)} | {dur:.0f} | {rate} | {fmt3([num(r['first_token_ms']) for r in timed])} | "
+                 f"{fmt3([num(r['total_ms']) for r in timed])} |")
         v = views(rs)
         n = v["n"]
         called = [r for r in rs if int(r["tokens_in"] or 0) > 0]
@@ -138,7 +139,7 @@ def main():
               "NOT_IN_PAPERS refusal); served = full answer or the zero-token extractive fallback. Wasted tokens = measured usage on "
               "requests that ended without their own outcome; calls cancelled mid-flight are counted, not estimated.",
           "", "Notes: stand-in times are simulated (time compressed ×20, converted back). Real quality-run times include TPM pacing "
-              "waits (runs were back-to-back); gate refusals make no model call and are not timed. Refused-wrongly % = 100 − correct − "
+              "waits (runs were back-to-back); gate refusals make no model call and are not timed. Latency percentiles exclude status=error rows (the real steady run had 2 local connection failures, ~4 ms each); outcome rates include them. Refused-wrongly % = 100 − correct − "
               "wrong − correctly refused. Percentiles are nearest-rank; with n < 100, p99 is the slowest request."]
     text = "\n".join(md)
     (ROOT / "results" / "tables.md").write_text(text + "\n")

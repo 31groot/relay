@@ -404,3 +404,19 @@ short); now simulated time.
 6. Rejected 429 attempts do not count toward RPM in the stand-in (unknown for Groq).
 7. Failures: 5xx and slow-success rates set to 0 (none seen in 131 real calls; capability exists, not exercised).
 8. Content: replayed real answers; only the 17 answer questions; the replay cannot show new model behaviour under load.
+
+## 2026-11-15 — Real steady run (16 requests at 1.5/min, gpt-oss-120b + 20b) — `results/steady_real_log.jsonl`
+
+Ran once with `--go-real`, exit 0, no 401/403/429, no budget refusal. 14/16 completed: 7 judged answers (auto-graded
+correct, NOT yet user-reviewed), 7 correct refusals (3 gate, 4 NOT_IN_PAPERS). **2 unexpected failures:** steady-13 and
+steady-14 (11:02:05 and 11:02:53 UTC, ~47 s apart) failed with `ConnectError` after ~3 ms — no HTTP status, the requests
+never reached Groq (local network failure). No retry (by design); they are resumable but were NOT re-run.
+- Real usage (from the log): 120b 26,547, 20b 6,247. The script's guard showed 120b 32,527 because it conservatively
+  charged the worst case (2,981 + 2,999) for the two calls with no usage.
+- **vs stand-in prediction on the same 14 requests:** outcomes and grades identical; tokens 120b 26,547 vs 28,200
+  (−5.9%), 20b 6,247 vs 6,365; latency for requests with a model call p50 1,273 vs 1,992 ms, p95 2,815 vs 4,705 ms —
+  the stand-in was ~1.6× pessimistic. Reason not verified (likely resampling from slower earlier calls).
+- Table 2a now excludes status=error rows from latency percentiles (a failed connection is not a fast response).
+- Bug caught by the duplicate-id assert: steady16 real and stand-in rows shared request_ids; ids now include the source.
+- Oddity (not investigated): request start_time (monotonic-based) is up to ~1.5 s later than its first call's wall-clock
+  `ts` near the failures — consistent with the system clock being adjusted, but unverified.
